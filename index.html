@@ -266,7 +266,6 @@
     let pipRestoreSize = null;
     let pipPreferredSize = null;
     let pipGeneration = 0;
-    let pipTransition = false;
     let pipClosedMinimized = false;
     let pipAspectTimer = null;
     let pipBezelSize = null;
@@ -1454,29 +1453,38 @@
     }
 
     function setPipMinimized(minimized) {
-      if (!pipWindow || pipTransition || minimized === pipMinimized) return;
+      if (!pipWindow || minimized === pipMinimized) return;
+      const doc = pipWindow.document;
+      const video = doc.getElementById('pipVideo');
+      const bar = doc.getElementById('pipMinBar');
+      const minBtn = doc.getElementById('pipMinBtn');
+      if (!video || !bar || !minBtn) return;
       if (minimized) {
         pipRestoreSize = { width: pipWindow.innerWidth, height: pipWindow.innerHeight };
         pipPreferredSize = { ...pipRestoreSize };
       }
-      // Chrome ignores moveTo() on a Document PiP window, and shrinking keeps the
-      // top edge where it was. Reopen so Chrome uses its default bottom-right place.
-      pipTransition = true;
-      enterPip({
-        replace: true,
-        size: minimized
-          ? { width: PIP_DOCK_DOT.width, height: PIP_DOCK_DOT.height }
-          : (pipRestoreSize ?? openPipSize()),
-        preferInitial: true,
-        startMinimized: minimized,
-      }).catch((err) => {
-        console.error(err);
-        try { pipWindow?.close(); } catch {}
-        closePip();
-        logTerm(`Picture-in-Picture gagal: ${err?.message ?? err}`, 'error');
-      }).finally(() => {
-        pipTransition = false;
-      });
+      pipMinimized = minimized;
+      doc.body.style.cursor = minimized ? 'pointer' : 'default';
+      if (minimized) video.style.display = 'none';
+      else applyPipLayout(video);
+      bar.style.display = minimized ? 'flex' : 'none';
+      minBtn.style.display = minimized ? 'none' : 'grid';
+      minBtn.title = minimized ? 'Restore (Ctrl+A)' : 'Minimize (Ctrl+A)';
+      minBtn.textContent = minimized ? '+' : '–';
+      const chrome = doc.getElementById('pipChrome');
+      if (chrome) chrome.style.display = minimized ? 'none' : 'flex';
+      setPipChromeOpen(false);
+      clearTimeout(pipDockTimer);
+      if (minimized) {
+        pipDockOpen = false;
+        pipSizeKey = 'min';
+        layoutPipDock();
+        resizePipTo(PIP_DOCK_DOT.width, PIP_DOCK_DOT.height);
+      } else if (pipRestoreSize) {
+        pipDockOpen = false;
+        pipSizeKey = `${video.videoWidth || videoCanvas.width}x${video.videoHeight || videoCanvas.height}`;
+        resizePipTo(pipRestoreSize.width, pipRestoreSize.height);
+      }
     }
 
     function setPipChromeOpen(open) {
