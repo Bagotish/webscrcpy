@@ -230,6 +230,7 @@
       decoder: null,
       connecting: false,
       link: null,
+      usbDevice: null,
       wifiHost: null,
       wifiSerial: null,
       wifiPhones: [],
@@ -599,6 +600,7 @@
       try {
         logTerm(`🔌 Membuka ${device.name} (${device.serial})...`, 'system');
 
+        state.usbDevice = device;
         let connection;
         try {
           connection = await device.connect();
@@ -616,6 +618,7 @@
         logTerm(`❌ Ralat: ${err?.message ?? err}`, 'error');
         await disconnect();
       } finally {
+        if (!state.adb) state.usbDevice = null;
         state.connecting = false;
         updateConnectionStatus();
       }
@@ -970,13 +973,16 @@
           adb.getProp('ro.product.model'),
           adb.getProp('ro.build.version.release'),
         ]);
+        if (state.adb !== adb) return;
         txtDeviceName.textContent = `${manufacturer.trim()} ${model.trim()} (Android ${release.trim()})`;
         logTerm(`✅ ADB bersambung: ${txtDeviceName.textContent}`, 'success');
         if (link === 'usb') await rememberWifiAddress(adb, serial, `${manufacturer.trim()} ${model.trim()}`);
+        if (state.adb !== adb) return;
         state.connecting = false;
         updateConnectionStatus();
 
         state.hasDex = await detectDex(adb, manufacturer.trim());
+        if (state.adb !== adb) return;
         renderDisplayMode();
         if (state.hasDex) {
           state.displayMode = null;
@@ -1061,7 +1067,9 @@
       logTerm('📤 Memuat naik scrcpy-server ke telefon...', 'system');
       const res = await fetch(SERVER_FILE);
       if (!res.ok) throw new Error(`Gagal memuat ${SERVER_FILE} (HTTP ${res.status})`);
+      if (state.adb !== adb) return;
       await AdbScrcpyClient.pushServer(adb, res.body);
+      if (state.adb !== adb) return;
 
       const options = new AdbScrcpyOptionsLatest({
         audio: false,
@@ -1079,6 +1087,10 @@
         ? `🚀 Memulakan DeX (1920x1080, ${state.bitrate} Mbps, ${state.fps} FPS)...`
         : `🚀 Memulakan scrcpy (${state.resolution}, ${state.bitrate} Mbps, ${state.fps} FPS)...`, 'system');
       const client = await AdbScrcpyClient.start(adb, DefaultServerPath, options);
+      if (state.adb !== adb) {
+        try { await client.close(); } catch {}
+        return;
+      }
       state.client = client;
 
       client.output
@@ -1218,22 +1230,60 @@
       return null;
     }
 
+    let disconnecting = false;
     async function disconnect(quiet = false) {
+      if (disconnecting) return;
       const adb = state.adb;
+      if (!adb && !state.client && !state.link && !state.usbDevice) return;
+      disconnecting = true;
+      state.usbDevice = null;
+      state.adb = null;
       state.hasDex = false;
       state.link = null;
       state.wifiHost = null;
       state.wifiSerial = null;
-      await stopMirror();
-      state.adb = null;
-      try { await adb?.close(); } catch {}
+      state.connecting = false;
+      try {
+        await stopMirror();
+        try { await adb?.close(); } catch {}
+      } finally {
+        disconnecting = false;
+      }
       txtDeviceName.textContent = 'No device connected';
       state.displayMode = 'mirror';
       state.oneUi = 0;
       renderDisplayMode();
       updateConnectionStatus();
+      refreshDeviceList().catch(() => {});
       if (adb && !quiet) logTerm('🔌 Diputuskan.', 'system');
     }
+
+    function onUsbDisconnect(event) {
+      if (state.wifiHandoff || !state.usbDevice) return;
+      if (event.device !== state.usbDevice.raw) return;
+      if (state.link !== 'usb' && !state.connecting) return;
+      logTerm('⚠️ Kabel USB dicabut. Sambungan diputuskan.', 'warn');
+      disconnect(true);
+    }
+    navigator.usb?.addEventListener('disconnect', onUsbDisconnect);
+
+    function usbSerial(device) {
+      if (device?.serialNumber) return device.serialNumber;
+      const hex = (n) => Number(n).toString(16).padStart(4, '0');
+      return `${hex(device.vendorId)}x${hex(device.productId)}`;
+    }
+
+    setInterval(async () => {
+      if (state.wifiHandoff || state.link !== 'usb' || !state.adb || !state.usbDevice || !navigator.usb) return;
+      const serial = state.usbDevice.serial;
+      try {
+        const devices = await navigator.usb.getDevices();
+        if (state.link !== 'usb' || state.usbDevice?.serial !== serial) return;
+        if (devices.some((device) => usbSerial(device) === serial)) return;
+        logTerm('⚠️ Kabel USB dicabut. Sambungan diputuskan.', 'warn');
+        disconnect(true);
+      } catch {}
+    }, 1000);
 
     // A fresh canvas per session avoids reusing a rendering context owned by a disposed decoder.
     function resetVideoCanvas() {
