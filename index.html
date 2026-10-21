@@ -1492,9 +1492,7 @@
       if (!doc || pipMinimized) open = false;
       const fillBtn = doc?.getElementById('pipFillBtn');
       const bright = doc?.getElementById('pipBright');
-      const disconnectBtn = doc?.getElementById('pipDisconnectBtn');
       if (fillBtn) fillBtn.style.display = open ? 'grid' : 'none';
-      if (disconnectBtn) disconnectBtn.style.display = open ? 'grid' : 'none';
       if (bright) {
         bright.style.display = open ? 'block' : 'none';
         if (!open) {
@@ -1728,7 +1726,17 @@
       volUp.style.cssText = volStyle;
       bindHoldKey(volDown, 25);
       bindHoldKey(volUp, 24);
-      pop.append(brightMark, brightSlider, screenBtn, volDown, volUp);
+      const disconnectBtn = doc.createElement('button');
+      disconnectBtn.id = 'pipDisconnectBtn';
+      disconnectBtn.type = 'button';
+      disconnectBtn.title = 'Disconnect';
+      disconnectBtn.textContent = '⏻';
+      disconnectBtn.style.cssText = volStyle;
+      disconnectBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        disconnect();
+      });
+      pop.append(brightMark, brightSlider, screenBtn, volDown, volUp, disconnectBtn);
       brightWrap.append(toolsBtn, pop);
       const minBtn = doc.createElement('button');
       minBtn.id = 'pipMinBtn';
@@ -1754,23 +1762,12 @@
         renderPipFillBtn();
       });
       renderPipFillBtn();
-      const disconnectBtn = doc.createElement('button');
-      disconnectBtn.id = 'pipDisconnectBtn';
-      disconnectBtn.type = 'button';
-      disconnectBtn.title = 'Disconnect';
-      disconnectBtn.textContent = '⏻';
-      disconnectBtn.style.cssText = 'display:none;width:28px;height:28px;border:0;border-radius:999px;background:rgba(0,0,0,.55);color:#fff;font-size:14px;line-height:1;cursor:pointer;place-items:center;flex:none;';
-      disconnectBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
-      disconnectBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        disconnect();
-      });
       const chrome = doc.createElement('div');
       chrome.id = 'pipChrome';
       chrome.style.cssText = 'position:fixed;top:8px;left:8px;z-index:3;display:flex;align-items:flex-start;gap:6px;';
       chrome.addEventListener('pointerenter', () => setPipChromeOpen(true));
       chrome.addEventListener('pointerleave', () => setPipChromeOpen(false));
-      chrome.append(minBtn, fillBtn, brightWrap, disconnectBtn);
+      chrome.append(minBtn, fillBtn, brightWrap);
       const bar = buildWalkmanBar(doc);
       doc.body.addEventListener('click', (e) => {
         if (!pipMinimized || e.target.closest('button')) return;
