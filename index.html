@@ -1492,7 +1492,9 @@
       if (!doc || pipMinimized) open = false;
       const fillBtn = doc?.getElementById('pipFillBtn');
       const bright = doc?.getElementById('pipBright');
+      const disconnectBtn = doc?.getElementById('pipDisconnectBtn');
       if (fillBtn) fillBtn.style.display = open ? 'grid' : 'none';
+      if (disconnectBtn) disconnectBtn.style.display = open ? 'grid' : 'none';
       if (bright) {
         bright.style.display = open ? 'block' : 'none';
         if (!open) {
@@ -1752,12 +1754,23 @@
         renderPipFillBtn();
       });
       renderPipFillBtn();
+      const disconnectBtn = doc.createElement('button');
+      disconnectBtn.id = 'pipDisconnectBtn';
+      disconnectBtn.type = 'button';
+      disconnectBtn.title = 'Disconnect';
+      disconnectBtn.textContent = '⏻';
+      disconnectBtn.style.cssText = 'display:none;width:28px;height:28px;border:0;border-radius:999px;background:rgba(0,0,0,.55);color:#fff;font-size:14px;line-height:1;cursor:pointer;place-items:center;flex:none;';
+      disconnectBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+      disconnectBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        disconnect();
+      });
       const chrome = doc.createElement('div');
       chrome.id = 'pipChrome';
       chrome.style.cssText = 'position:fixed;top:8px;left:8px;z-index:3;display:flex;align-items:flex-start;gap:6px;';
       chrome.addEventListener('pointerenter', () => setPipChromeOpen(true));
       chrome.addEventListener('pointerleave', () => setPipChromeOpen(false));
-      chrome.append(minBtn, fillBtn, brightWrap);
+      chrome.append(minBtn, fillBtn, brightWrap, disconnectBtn);
       const bar = buildWalkmanBar(doc);
       doc.body.addEventListener('click', (e) => {
         if (!pipMinimized || e.target.closest('button')) return;
@@ -1871,6 +1884,8 @@
       const down = walkmanKey(doc, '−', 'Volume down');
       const screen = walkmanKey(doc, '●', 'Turn off phone screen');
       screen.id = 'pipMinScreenBtn';
+      const hangUp = walkmanKey(doc, '⏻', 'Disconnect');
+      hangUp.id = 'pipMinDisconnectBtn';
       goBack.addEventListener('pointerdown', (e) => e.stopPropagation());
       goBack.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1881,12 +1896,17 @@
         e.stopPropagation();
         setPhoneScreenOff(!chkTurnOffScreen.checked).catch(() => {});
       });
+      hangUp.addEventListener('pointerdown', (e) => e.stopPropagation());
+      hangUp.addEventListener('click', (e) => {
+        e.stopPropagation();
+        disconnect();
+      });
       bindTapKey(backward, 88);
       bindTapKey(play, 85);
       bindTapKey(next, 87);
       bindHoldKey(up, 24);
       bindHoldKey(down, 25);
-      bar.append(goBack, backward, play, next, down, up, screen);
+      bar.append(goBack, backward, play, next, down, up, screen, hangUp);
       return bar;
     }
 
