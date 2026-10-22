@@ -1973,12 +1973,22 @@
     }
 
     async function rotateScreen() {
-      const controller = state.client?.controller;
-      if (!controller) {
+      const adb = state.adb;
+      if (!adb) {
         logTerm('Tiada peranti bersambung.', 'warn');
         return;
       }
-      await controller.rotateDevice();
+      const landscape = videoCanvas.width > videoCanvas.height;
+      const rotation = landscape ? '0' : '1';
+      const shell = (args) => adb.subprocess.noneProtocol.spawnWaitText(args);
+      const out = await shell(['cmd', 'window', 'user-rotation', 'lock', rotation]).catch((err) => String(err?.message ?? err));
+      if (/unknown|error|exception|not found/i.test(out)) {
+        await shell(['settings', 'put', 'system', 'accelerometer_rotation', '0']);
+        await shell(['settings', 'put', 'system', 'user_rotation', rotation]);
+      }
+      logTerm(landscape
+        ? 'Putar ke portrait.'
+        : 'Putar ke landscape. Jika skrin tidak berubah, app ini (contoh home screen) dikunci pada portrait.', 'system');
     }
 
     chkTurnOffScreen.addEventListener('change', () => {
