@@ -1731,10 +1731,11 @@
       rotateBtn.type = 'button';
       rotateBtn.textContent = '⟳';
       rotateBtn.style.cssText = volStyle;
+      rotateBtn.title = 'Rotate to landscape';
       rotateBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        setAutoRotate(!autoRotate).catch((err) => {
-          logTerm(`Auto rotate gagal: ${err?.message ?? err}`, 'error');
+        rotateScreen().catch((err) => {
+          logTerm(`Putaran gagal: ${err?.message ?? err}`, 'error');
         });
       });
       const disconnectBtn = doc.createElement('button');
@@ -1809,8 +1810,7 @@
       video.focus();
 
       renderPipScreenBtn();
-      renderPipRotateBtn();
-      readAutoRotate().catch(() => {});
+      readScreenRotation().catch(() => {});
       win.addEventListener('resize', () => {
         if (pipMinimized) {
           layoutPipDock();
@@ -1973,35 +1973,37 @@
       }
     }
 
-    let autoRotate = false;
+    let screenLandscape = false;
 
-    async function readAutoRotate() {
+    async function readScreenRotation() {
       const adb = state.adb;
       if (!adb) return;
-      const out = await adb.subprocess.noneProtocol.spawnWaitText(['settings', 'get', 'system', 'accelerometer_rotation']);
+      const out = await adb.subprocess.noneProtocol.spawnWaitText(['settings', 'get', 'system', 'user_rotation']);
       if (state.adb !== adb) return;
-      autoRotate = out.trim() === '1';
+      screenLandscape = out.trim() === '1' || out.trim() === '3';
       renderPipRotateBtn();
     }
 
-    async function setAutoRotate(on) {
+    async function rotateScreen() {
       const adb = state.adb;
       if (!adb) {
         logTerm('Tiada peranti bersambung.', 'warn');
         return;
       }
-      await adb.subprocess.noneProtocol.spawnWaitText(['settings', 'put', 'system', 'accelerometer_rotation', on ? '1' : '0']);
-      autoRotate = on;
+      const next = screenLandscape ? '0' : '1';
+      await adb.subprocess.noneProtocol.spawnWaitText(['settings', 'put', 'system', 'accelerometer_rotation', '0']);
+      await adb.subprocess.noneProtocol.spawnWaitText(['settings', 'put', 'system', 'user_rotation', next]);
+      screenLandscape = next === '1';
       renderPipRotateBtn();
-      logTerm(on ? 'Auto rotate dihidupkan.' : 'Auto rotate dimatikan.', 'system');
+      logTerm(screenLandscape ? 'Skrin diputarkan ke landscape.' : 'Skrin diputarkan ke portrait.', 'system');
     }
 
     function renderPipRotateBtn() {
       const btn = pipWindow?.document.getElementById('pipRotateBtn');
       if (!btn) return;
-      btn.title = autoRotate ? 'Auto rotate is on' : 'Turn on auto rotate';
-      btn.style.background = autoRotate ? '#fff' : 'transparent';
-      btn.style.color = autoRotate ? '#18181b' : '#fff';
+      btn.title = screenLandscape ? 'Rotate to portrait' : 'Rotate to landscape';
+      btn.style.background = screenLandscape ? '#fff' : 'transparent';
+      btn.style.color = screenLandscape ? '#18181b' : '#fff';
     }
 
     chkTurnOffScreen.addEventListener('change', () => {
