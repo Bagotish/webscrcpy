@@ -1726,6 +1726,17 @@
       volUp.style.cssText = volStyle;
       bindHoldKey(volDown, 25);
       bindHoldKey(volUp, 24);
+      const rotateBtn = doc.createElement('button');
+      rotateBtn.id = 'pipRotateBtn';
+      rotateBtn.type = 'button';
+      rotateBtn.textContent = '⟳';
+      rotateBtn.style.cssText = volStyle;
+      rotateBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setAutoRotate(!autoRotate).catch((err) => {
+          logTerm(`Auto rotate gagal: ${err?.message ?? err}`, 'error');
+        });
+      });
       const disconnectBtn = doc.createElement('button');
       disconnectBtn.id = 'pipDisconnectBtn';
       disconnectBtn.type = 'button';
@@ -1736,7 +1747,7 @@
         e.stopPropagation();
         disconnect();
       });
-      pop.append(brightMark, brightSlider, screenBtn, volDown, volUp, disconnectBtn);
+      pop.append(brightMark, brightSlider, screenBtn, rotateBtn, volDown, volUp, disconnectBtn);
       brightWrap.append(toolsBtn, pop);
       const minBtn = doc.createElement('button');
       minBtn.id = 'pipMinBtn';
@@ -1798,6 +1809,8 @@
       video.focus();
 
       renderPipScreenBtn();
+      renderPipRotateBtn();
+      readAutoRotate().catch(() => {});
       win.addEventListener('resize', () => {
         if (pipMinimized) {
           layoutPipDock();
@@ -1958,6 +1971,37 @@
         min.style.background = off ? '#f5f5f4' : '#2b2926';
         min.style.color = off ? '#18181b' : '#f5f5f4';
       }
+    }
+
+    let autoRotate = false;
+
+    async function readAutoRotate() {
+      const adb = state.adb;
+      if (!adb) return;
+      const out = await adb.subprocess.noneProtocol.spawnWaitText(['settings', 'get', 'system', 'accelerometer_rotation']);
+      if (state.adb !== adb) return;
+      autoRotate = out.trim() === '1';
+      renderPipRotateBtn();
+    }
+
+    async function setAutoRotate(on) {
+      const adb = state.adb;
+      if (!adb) {
+        logTerm('Tiada peranti bersambung.', 'warn');
+        return;
+      }
+      await adb.subprocess.noneProtocol.spawnWaitText(['settings', 'put', 'system', 'accelerometer_rotation', on ? '1' : '0']);
+      autoRotate = on;
+      renderPipRotateBtn();
+      logTerm(on ? 'Auto rotate dihidupkan.' : 'Auto rotate dimatikan.', 'system');
+    }
+
+    function renderPipRotateBtn() {
+      const btn = pipWindow?.document.getElementById('pipRotateBtn');
+      if (!btn) return;
+      btn.title = autoRotate ? 'Auto rotate is on' : 'Turn on auto rotate';
+      btn.style.background = autoRotate ? '#fff' : 'transparent';
+      btn.style.color = autoRotate ? '#18181b' : '#fff';
     }
 
     chkTurnOffScreen.addEventListener('change', () => {
