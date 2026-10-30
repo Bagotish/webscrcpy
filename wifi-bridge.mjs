@@ -180,7 +180,7 @@ function onUpgrade(request, socket, head) {
       const host = String(requestBody.host || '');
       const remotePort = Number(requestBody.port);
       if (!isLanAddress(host) || !Number.isInteger(remotePort) || remotePort < 1 || remotePort > 65535) {
-        sendFrame(socket, 0x1, JSON.stringify({ type: 'error', message: 'Guna IP tempatan telefon, contoh 192.168.1.10.' }));
+        sendFrame(socket, 0x1, JSON.stringify({ type: 'error', message: 'Use the phone\'s local IP address, e.g. 192.168.1.10.' }));
         socket.end();
         return;
       }
@@ -192,8 +192,8 @@ function onUpgrade(request, socket, head) {
         dialed = true;
         clearTimeout(timer);
         const message = err?.message === 'timed out'
-          ? `Tidak dapat hubungi ${host}:${remotePort}. timed out`
-          : `Tidak dapat hubungi ${host}:${remotePort}. ${err?.message || 'gagal'}`;
+          ? `Unable to reach ${host}:${remotePort}. timed out`
+          : `Unable to reach ${host}:${remotePort}. ${err?.message || 'failed'}`;
         try { sendFrame(socket, 0x1, JSON.stringify({ type: 'error', message })); } catch {}
         socket.end();
         tcp.destroy();
@@ -234,11 +234,11 @@ function loadOrGenerateCerts() {
     fs.mkdirSync(certDir, { recursive: true });
     execSync(`openssl req -x509 -newkey rsa:2048 -keyout "${keyFile}" -out "${certFile}" -days 365 -nodes -subj "/CN=127.0.0.1" -addext "subjectAltName=IP:127.0.0.1,DNS:localhost"`, { stdio: 'ignore' });
     if (fs.existsSync(certFile) && fs.existsSync(keyFile)) {
-      console.log('Sijil SSL tempatan (WSS) berjaya dijana secara automatik.');
+      console.log('Local SSL certificate (WSS) successfully generated.');
       return { cert: fs.readFileSync(certFile), key: fs.readFileSync(keyFile) };
     }
   } catch (err) {
-    console.warn('Gagal menjana sijil SSL secara automatik:', err?.message || err);
+    console.warn('Failed to automatically generate SSL certificate:', err?.message || err);
   }
   return null;
 }
@@ -251,5 +251,5 @@ if (certs) {
     console.log(`Wi-Fi bridge listening on wss://127.0.0.1:${securePort}`);
   });
 } else {
-  console.log('Tiada wifi-bridge-certs, wss://127.0.0.1 tidak aktif (hanya ws://127.0.0.1:8765 aktif).');
+  console.log('No wifi-bridge-certs found, wss://127.0.0.1 is disabled (only ws://127.0.0.1:8765 is active).');
 }

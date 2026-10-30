@@ -5,7 +5,7 @@ echo "=================================================="
 echo "          WebScrcpy Wi-Fi Helper (Mac)"
 echo "=================================================="
 
-# Cari lokasi Node.js
+# Locate Node.js binary
 NODE_BIN=""
 for path in "/opt/homebrew/bin/node" "/usr/local/bin/node" "$(which node 2>/dev/null)"; do
     if [ -x "$path" ]; then
@@ -15,11 +15,11 @@ for path in "/opt/homebrew/bin/node" "/usr/local/bin/node" "$(which node 2>/dev/
 done
 
 if [ -z "$NODE_BIN" ]; then
-    echo "⚠️  Node.js tidak dijumpai di Mac anda."
-    echo "Membuka https://nodejs.org di pelayar..."
+    echo "⚠️  Node.js was not found on your Mac."
+    echo "Opening https://nodejs.org in your browser..."
     open "https://nodejs.org/en/download" 2>/dev/null || true
     echo ""
-    read -p "Sila pasang Node.js, kemudian tekan [Enter] di sini untuk sambung..."
+    read -p "Please install Node.js, then press [Enter] here to continue..."
     for path in "/opt/homebrew/bin/node" "/usr/local/bin/node" "$(which node 2>/dev/null)"; do
         if [ -x "$path" ]; then
             NODE_BIN="$path"
@@ -27,18 +27,18 @@ if [ -z "$NODE_BIN" ]; then
         fi
     done
     if [ -z "$NODE_BIN" ]; then
-        echo "❌ Node.js masih belum dipasang. Sila pasang dan buka semula fail ini."
-        read -p "Tekan [Enter] untuk keluar..."
+        echo "❌ Node.js is still not installed. Please install it and run this file again."
+        read -p "Press [Enter] to exit..."
         exit 1
     fi
 fi
 
-echo "✅ Node.js sedia: $NODE_BIN"
+echo "✅ Node.js detected: $NODE_BIN"
 echo ""
-echo "Pilihan pemasangan:"
-echo "  [1] Pasang servis latar belakang (Automatik aktif setiap masa - Disyorkan)"
-echo "  [2] Jalankan sekali sahaja dalam tetingkap ini"
-read -p "Pilihan anda [1/2] (Tekan Enter untuk 1): " choice
+echo "Setup options:"
+echo "  [1] Install as background service (Automatically starts on login - Recommended)"
+echo "  [2] Run once in this terminal window"
+read -p "Your choice [1/2] (Press Enter for 1): " choice
 choice=${choice:-1}
 
 if [ "$choice" = "1" ]; then
@@ -73,11 +73,11 @@ EOF
     launchctl load -w "$PLIST_PATH"
     echo ""
     echo "=================================================="
-    echo "🎉 Selesai! Wi-Fi Bridge kini aktif di latar belakang."
-    echo "Anda boleh tutup tetingkap ini dan kembali ke laman webscrcpy."
+    echo "🎉 Success! Wi-Fi Bridge is now running in the background."
+    echo "You can close this window and return to WebScrcpy."
     echo "=================================================="
-    read -p "Tekan [Enter] untuk keluar..."
+    read -p "Press [Enter] to close..."
 else
-    echo "Memulakan Wi-Fi bridge... (Jangan tutup tetingkap ini)"
+    echo "Starting Wi-Fi bridge... (Do not close this window while using WebScrcpy)"
     "$NODE_BIN" wifi-bridge.mjs
 fi

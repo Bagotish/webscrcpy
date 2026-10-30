@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ms" class="dark h-full">
+<html lang="en" class="dark h-full">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -66,8 +66,15 @@
       <button id="btnSettings" title="Settings" class="w-8 h-8 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
         <i class="fa-solid fa-sliders text-sm"></i>
       </button>
+      <button id="btnDownloadHelper" title="Wi-Fi Bridge Helper" class="w-8 h-8 rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center transition shadow-md shadow-blue-900/30">
+        <i class="fa-solid fa-download text-sm"></i>
+      </button>
       <button id="btnWebUsbConnect" class="h-8 px-4 rounded-full bg-white text-zinc-900 hover:bg-zinc-200 text-xs font-medium transition flex items-center gap-2">
         <i class="fa-brands fa-usb"></i><span>Connect</span>
+      </button>
+      <button id="btnChangelog" title="Changelog" class="relative w-8 h-8 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
+        <i class="fa-solid fa-bell text-sm"></i>
+        <span id="changelogBadge" class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-500 ring-2 ring-zinc-950"></span>
       </button>
     </div>
   </header>
@@ -105,15 +112,139 @@
     <button id="btnFit" type="button" title="Fit to screen" class="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-900/90 text-zinc-300 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
       <i class="fa-solid fa-up-right-and-down-left-from-center text-sm"></i>
     </button>
+    <button id="btnZoomIn" type="button" title="Zoom in (or Ctrl + Drag / Trackpad Pinch)" class="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-900/90 text-zinc-300 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
+      <i class="fa-solid fa-magnifying-glass-plus text-sm"></i>
+    </button>
+    <button id="btnZoomOut" type="button" title="Zoom out (or Ctrl + Drag / Trackpad Pinch)" class="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-900/90 text-zinc-300 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
+      <i class="fa-solid fa-magnifying-glass-minus text-sm"></i>
+    </button>
     <button id="btnVolUp" type="button" title="Volume up" class="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-900/90 text-zinc-300 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
       <i class="fa-solid fa-plus text-sm"></i>
     </button>
     <button id="btnVolDown" type="button" title="Volume down" class="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-900/90 text-zinc-300 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
       <i class="fa-solid fa-minus text-sm"></i>
     </button>
-    <button id="btnSyncClipboard" type="button" title="Sync Clipboard ke Telefon" class="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-900/90 text-zinc-300 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
-    <i class="fa-solid fa-clipboard text-sm"></i>
-  </button>
+    <button id="btnSyncClipboard" type="button" title="Sync clipboard to phone" class="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-900/90 text-zinc-300 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
+      <i class="fa-solid fa-clipboard text-sm"></i>
+    </button>
+  </div>
+
+  <!-- POPOUT WI-FI DOWNLOAD HELPER GUIDELINE -->
+  <div id="downloadPanel" class="popout closed fixed top-14 right-4 z-40 w-[380px] max-w-[calc(100vw-2rem)] rounded-2xl bg-zinc-900/95 backdrop-blur border border-zinc-800 shadow-2xl shadow-black p-4 space-y-3.5">
+    <div class="flex items-center justify-between px-1">
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center text-xs">
+          <i class="fa-solid fa-wifi"></i>
+        </div>
+        <span class="text-xs font-semibold text-zinc-200">Wi-Fi Bridge Helper</span>
+      </div>
+      <button id="btnCloseDownload" class="w-6 h-6 rounded-full text-zinc-500 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
+        <i class="fa-solid fa-xmark text-xs"></i>
+      </button>
+    </div>
+
+    <p class="text-[11px] text-zinc-400 leading-relaxed px-1">
+      Required for <span class="text-zinc-200 font-medium">Wireless (Wi-Fi)</span> connection. Download the helper package for your operating system and double-click to start.
+    </p>
+
+    <div class="space-y-2 pt-1">
+      <a href="./webscrcpy-windows.zip" download="webscrcpy-windows.zip" class="flex items-center justify-between p-3 rounded-xl bg-zinc-950 border border-zinc-800 hover:border-blue-500 hover:bg-blue-500/10 transition group">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center text-lg">
+            <i class="fa-brands fa-windows"></i>
+          </div>
+          <div class="text-left">
+            <span class="block text-xs font-semibold text-zinc-200 group-hover:text-blue-400 transition">Windows (.zip)</span>
+            <span class="block text-[10px] text-zinc-500">Includes start-windows.bat & wifi-bridge</span>
+          </div>
+        </div>
+        <div class="w-7 h-7 rounded-lg bg-zinc-900 border border-zinc-800 group-hover:border-blue-500/40 flex items-center justify-center transition">
+          <i class="fa-solid fa-download text-xs text-zinc-400 group-hover:text-blue-400 transition"></i>
+        </div>
+      </a>
+
+      <a href="./webscrcpy-mac.zip" download="webscrcpy-mac.zip" class="flex items-center justify-between p-3 rounded-xl bg-zinc-950 border border-zinc-800 hover:border-emerald-500 hover:bg-emerald-500/10 transition group">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-lg">
+            <i class="fa-brands fa-apple"></i>
+          </div>
+          <div class="text-left">
+            <span class="block text-xs font-semibold text-zinc-200 group-hover:text-emerald-400 transition">macOS (.zip)</span>
+            <span class="block text-[10px] text-zinc-500">Includes start-mac.command & wifi-bridge</span>
+          </div>
+        </div>
+        <div class="w-7 h-7 rounded-lg bg-zinc-900 border border-zinc-800 group-hover:border-emerald-500/40 flex items-center justify-center transition">
+          <i class="fa-solid fa-download text-xs text-zinc-400 group-hover:text-emerald-400 transition"></i>
+        </div>
+      </a>
+    </div>
+
+    <div class="rounded-xl bg-zinc-950/70 border border-zinc-800/80 p-3 space-y-1.5 text-[11px]">
+      <span class="font-medium text-zinc-300 block">Quick Guide:</span>
+      <ol class="list-decimal list-inside text-zinc-400 space-y-1 leading-relaxed">
+        <li>Download the zip package above for your operating system.</li>
+        <li>Extract the ZIP and double-click <span class="text-zinc-200">start-mac.command</span> or <span class="text-zinc-200">start-windows.bat</span> to start the bridge.</li>
+        <li>Return to WebScrcpy and click your device under the <span class="text-zinc-200">Wi-Fi</span> section.</li>
+      </ol>
+
+    </div>
+  </div>
+
+  <!-- POPOUT CHANGELOG -->
+  <div id="changelogPanel" class="popout closed fixed top-14 right-4 z-40 w-[360px] max-w-[calc(100vw-2rem)] rounded-2xl bg-zinc-900/95 backdrop-blur border border-zinc-800 shadow-2xl shadow-black p-4 space-y-3">
+    <div class="flex items-center justify-between px-1">
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs">
+          <i class="fa-solid fa-bullhorn"></i>
+        </div>
+        <span class="text-xs font-semibold text-zinc-200">Changelog</span>
+      </div>
+      <button id="btnCloseChangelog" class="w-6 h-6 rounded-full text-zinc-500 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
+        <i class="fa-solid fa-xmark text-xs"></i>
+      </button>
+    </div>
+
+    <div class="max-h-80 overflow-y-auto term-scroll space-y-3 pr-1">
+      <!-- v1.2.0 -->
+      <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800 space-y-1.5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-emerald-400">v1.2.0</span>
+          <span class="text-[10px] text-zinc-500">30-10-2026</span>
+        </div>
+        <ul class="text-[11px] text-zinc-300 space-y-1 list-disc list-inside">
+          <li><span class="font-medium text-zinc-200">Pinch-to-Zoom:</span> Multi-touch zoom support for mobile games (Clash of Clans, special request for Azzuri and Matket) via trackpad pinch, Ctrl+drag, or sidebar zoom buttons.</li>
+          <li><span class="font-medium text-zinc-200">Device Management:</span> Easily remove / forget saved Wi-Fi and paired USB devices.</li>
+          <li><span class="font-medium text-zinc-200">Wi-Fi Helper:</span> 1-click script packages for Mac & Windows wireless connections.</li>
+          <li><span class="font-medium text-zinc-200">Shared Clipboard:</span> Sync your PC/Mac clipboard directly to your phone.</li>
+          <li><span class="font-medium text-zinc-200">Manual IP:</span> Connect directly using your phone local IP address.</li>
+          <li><span class="font-medium text-zinc-200">Auto SSL (WSS):</span> Automatically generated local TLS certificates for HTTPS support.</li>
+        </ul>
+      </div>
+
+      <!-- v1.1.0 -->
+      <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800 space-y-1.5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-zinc-300">v1.1.0</span>
+          <span class="text-[10px] text-zinc-500">28-10-2026</span>
+        </div>
+        <ul class="text-[11px] text-zinc-400 space-y-1 list-disc list-inside">
+          <li><span class="text-zinc-300 font-medium">Samsung DeX:</span> Desktop mode support for Samsung Galaxy devices.</li>
+          <li><span class="text-zinc-300 font-medium">Picture-in-Picture:</span> Floating resizable PiP window (Ctrl+A).</li>
+          <li><span class="text-zinc-300 font-medium">Screen Controls:</span> Volume controls and fit-to-screen adjustments.</li>
+        </ul>
+      </div>
+
+      <!-- v1.0.0 -->
+      <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800 space-y-1.5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-zinc-400">v1.0.0</span>
+          <span class="text-[10px] text-zinc-500">20-10-2026</span>
+        </div>
+        <ul class="text-[11px] text-zinc-500 space-y-1 list-disc list-inside">
+          <li>Initial release of WebScrcpy (WebUSB, low-latency 60 FPS WebCodecs).</li>
+        </ul>
+      </div>
+    </div>
   </div>
 
   <!-- POPOUT DEVICE PICKER -->
@@ -133,14 +264,11 @@
         <span class="text-[11px] text-zinc-500 font-medium">Wi-Fi</span>
         <div class="flex items-center gap-2">
           <button id="btnToggleManualIp" type="button" class="text-[10px] text-zinc-400 hover:text-zinc-200 transition">+ IP Manual</button>
-          <a href="./webscrcpy-wifi-helper.zip" download="webscrcpy-wifi-helper.zip" class="text-[10px] text-emerald-400 hover:text-emerald-300 font-medium transition flex items-center gap-1" title="Muat turun fail bantuan untuk sokongan Wi-Fi">
-            <i class="fa-solid fa-download text-[9px]"></i> Wi-Fi Helper
-          </a>
         </div>
       </div>
       <form id="formManualIp" class="hidden flex gap-1.5 px-1 py-1">
         <input type="text" id="inputManualIp" placeholder="192.168.1.10" class="flex-1 min-w-0 bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1 text-xs text-zinc-200 font-mono placeholder:text-zinc-700 focus:outline-none focus:border-zinc-600">
-        <button type="submit" class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs">Sambung</button>
+        <button type="submit" class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs">Connect</button>
       </form>
       <div id="wifiList" class="space-y-1"></div>
     </div>
@@ -296,6 +424,10 @@
     const PIP_DOCK_DOT = { width: 240, height: 52 };
     const devicePanel = document.getElementById('devicePanel');
     const deviceList = document.getElementById('deviceList');
+    const downloadPanel = document.getElementById('downloadPanel');
+    const btnDownloadHelper = document.getElementById('btnDownloadHelper');
+    const changelogPanel = document.getElementById('changelogPanel');
+    const btnChangelog = document.getElementById('btnChangelog');
     const txtDeviceName = document.getElementById('txtDeviceName');
     const badgeFps = document.getElementById('badgeFps');
     const badgeRes = document.getElementById('badgeRes');
@@ -327,7 +459,11 @@
     }
 
     function toggleSettings(open = settingsPanel.classList.contains('closed')) {
-      if (open) toggleDevices(false);
+      if (open) {
+        toggleDevices(false);
+        toggleDownload(false);
+        toggleChangelog(false);
+      }
       settingsPanel.classList.toggle('closed', !open);
       btnSettings.classList.toggle('bg-zinc-800', open);
       btnSettings.classList.toggle('text-white', open);
@@ -336,20 +472,58 @@
     function toggleDevices(open = devicePanel.classList.contains('closed')) {
       if (open) {
         toggleSettings(false);
+        toggleDownload(false);
+        toggleChangelog(false);
         refreshDeviceList();
       }
       devicePanel.classList.toggle('closed', !open);
+    }
+
+    function toggleDownload(open = downloadPanel.classList.contains('closed')) {
+      if (open) {
+        toggleSettings(false);
+        toggleDevices(false);
+        toggleChangelog(false);
+      }
+      downloadPanel.classList.toggle('closed', !open);
+      btnDownloadHelper.classList.toggle('ring-2', open);
+      btnDownloadHelper.classList.toggle('ring-blue-400', open);
+    }
+
+    function toggleChangelog(open = changelogPanel.classList.contains('closed')) {
+      if (open) {
+        toggleSettings(false);
+        toggleDevices(false);
+        toggleDownload(false);
+        const badge = document.getElementById('changelogBadge');
+        if (badge) badge.classList.add('hidden');
+      }
+      changelogPanel.classList.toggle('closed', !open);
+      btnChangelog.classList.toggle('bg-zinc-800', open);
+      btnChangelog.classList.toggle('text-white', open);
     }
 
     btnSettings.addEventListener('click', (e) => {
       e.stopPropagation();
       toggleSettings();
     });
+    btnDownloadHelper.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleDownload();
+    });
+    btnChangelog.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleChangelog();
+    });
     document.getElementById('btnCloseSettings').addEventListener('click', () => toggleSettings(false));
     document.getElementById('btnCloseDevices').addEventListener('click', () => toggleDevices(false));
+    document.getElementById('btnCloseDownload').addEventListener('click', () => toggleDownload(false));
+    document.getElementById('btnCloseChangelog').addEventListener('click', () => toggleChangelog(false));
     document.addEventListener('pointerdown', (e) => {
       if (!settingsPanel.contains(e.target) && !btnSettings.contains(e.target)) toggleSettings(false);
       if (!devicePanel.contains(e.target) && !btnWebUsbConnect.contains(e.target)) toggleDevices(false);
+      if (!downloadPanel.contains(e.target) && !btnDownloadHelper.contains(e.target)) toggleDownload(false);
+      if (!changelogPanel.contains(e.target) && !btnChangelog.contains(e.target)) toggleChangelog(false);
     });
     function layoutCanvas() {
       const canvas = videoCanvas;
@@ -409,6 +583,8 @@
       renderFitButton();
       layoutCanvas();
     });
+    document.getElementById('btnZoomIn')?.addEventListener('click', () => performPinchZoom(true));
+    document.getElementById('btnZoomOut')?.addEventListener('click', () => performPinchZoom(false));
     bindHoldKey(document.getElementById('btnVolUp'), 24);
     bindHoldKey(document.getElementById('btnVolDown'), 25);
     window.addEventListener('resize', layoutCanvas);
@@ -435,6 +611,8 @@
       if (e.key === 'Escape' && e.target !== videoCanvas) {
         toggleSettings(false);
         toggleDevices(false);
+        toggleDownload(false);
+        toggleChangelog(false);
       }
     }, true);
 
@@ -513,16 +691,30 @@
       for (const phone of state.wifiPhones) list.appendChild(wifiRow(phone, names.get(phone.name) > 1));
     }
 
+    function removeWifiPhone(phone) {
+      state.wifiPhones = state.wifiPhones.filter((item) => item.serial !== phone.serial && item.host !== phone.host);
+      localStorage.setItem('webscrcpy-phones', JSON.stringify(state.wifiPhones));
+      if (state.wifiSerial === phone.serial && !state.adb) {
+        state.wifiHost = null;
+        state.wifiSerial = null;
+      }
+      logTerm(`🗑️ Removed ${phone.name} (${phone.host}) from Wi-Fi list.`, 'system');
+      renderWifiStatus();
+    }
+
     function wifiRow(phone, duplicateName) {
       const active = !!state.adb && state.wifiSerial === phone.serial;
+      const row = document.createElement('div');
+      row.className = 'group flex items-center justify-between w-full rounded-xl hover:bg-zinc-800 transition pr-2';
+
       const button = document.createElement('button');
       button.type = 'button';
       button.disabled = state.connecting;
-      button.className = 'w-full text-left px-3 py-2.5 rounded-xl hover:bg-zinc-800 disabled:opacity-40 transition flex items-center gap-3';
+      button.className = 'flex-1 text-left px-3 py-2.5 rounded-xl disabled:opacity-40 transition flex items-center gap-3 min-w-0';
       const icon = document.createElement('i');
-      icon.className = `fa-solid fa-wifi text-sm w-4 text-center ${active ? 'text-emerald-400' : 'text-zinc-500'}`;
+      icon.className = `fa-solid fa-wifi text-sm w-4 text-center shrink-0 ${active ? 'text-emerald-400' : 'text-zinc-500'}`;
       const text = document.createElement('span');
-      text.className = 'min-w-0';
+      text.className = 'min-w-0 flex-1';
       const name = document.createElement('span');
       name.className = 'block text-xs text-zinc-200 truncate';
       name.textContent = duplicateName ? `${phone.name} · ${phone.serial.slice(-4)}` : phone.name;
@@ -542,26 +734,53 @@
           logTerm(`❌ Wi-Fi: ${err?.message ?? err}`, 'error');
         });
       });
-      return button;
+
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.title = `Delete ${phone.name}`;
+      delBtn.className = 'w-7 h-7 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-zinc-700/60 transition flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0';
+      delBtn.innerHTML = '<i class="fa-solid fa-trash-can text-xs"></i>';
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeWifiPhone(phone);
+      });
+
+      row.append(button, delBtn);
+      return row;
     }
 
     function webUsbReady() {
       if (!browserReady()) return false;
       if (!AdbDaemonWebUsbDeviceManager.BROWSER) {
-        logTerm('Browser ini tidak menyokong WebUSB. Guna Google Chrome atau Microsoft Edge.', 'error');
+        logTerm('This browser does not support WebUSB. Please use Google Chrome or Microsoft Edge.', 'error');
         return false;
       }
       return true;
     }
 
+    async function forgetUsbDevice(device) {
+      try {
+        if (typeof device.raw?.forget === 'function') {
+          await device.raw.forget();
+        }
+      } catch (err) {
+        console.warn('Could not forget USB device:', err);
+      }
+      logTerm(`🗑️ Removed ${device.name || 'device'} (${device.serial || 'USB'}) from paired devices.`, 'system');
+      await refreshDeviceList();
+    }
+
     function deviceRow(device) {
+      const row = document.createElement('div');
+      row.className = 'group flex items-center justify-between w-full rounded-xl hover:bg-zinc-800 transition pr-2';
+
       const button = document.createElement('button');
       button.type = 'button';
-      button.className = 'w-full text-left px-3 py-2.5 rounded-xl hover:bg-zinc-800 transition flex items-center gap-3';
+      button.className = 'flex-1 text-left px-3 py-2.5 rounded-xl transition flex items-center gap-3 min-w-0';
       const icon = document.createElement('i');
-      icon.className = 'fa-solid fa-mobile-screen text-zinc-500 text-sm w-4 text-center';
+      icon.className = 'fa-solid fa-mobile-screen text-zinc-500 text-sm w-4 text-center shrink-0';
       const text = document.createElement('span');
-      text.className = 'min-w-0';
+      text.className = 'min-w-0 flex-1';
       const name = document.createElement('span');
       name.className = 'block text-xs text-zinc-200 truncate';
       name.textContent = device.name || 'Android device';
@@ -571,7 +790,19 @@
       text.append(name, serial);
       button.append(icon, text);
       button.addEventListener('click', () => connectDevice(device));
-      return button;
+
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.title = `Forget ${device.name || 'device'}`;
+      delBtn.className = 'w-7 h-7 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-zinc-700/60 transition flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0';
+      delBtn.innerHTML = '<i class="fa-solid fa-trash-can text-xs"></i>';
+      delBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await forgetUsbDevice(device);
+      });
+
+      row.append(button, delBtn);
+      return row;
     }
 
     async function refreshDeviceList() {
@@ -581,7 +812,7 @@
       try {
         devices = manager ? await manager.getDevices() : [];
       } catch (err) {
-        logTerm(`Tidak dapat senarai peranti: ${err?.message ?? err}`, 'error');
+        logTerm(`Could not list devices: ${err?.message ?? err}`, 'error');
       }
       if (!devices.length) {
         const empty = document.createElement('p');
@@ -609,7 +840,7 @@
       } catch (err) {
         if (err?.name === 'NotFoundError') return;
         console.error(err);
-        logTerm(`❌ Ralat: ${err?.message ?? err}`, 'error');
+        logTerm(`❌ Error: ${err?.message ?? err}`, 'error');
       }
     });
 
@@ -620,7 +851,7 @@
       state.connecting = true;
       updateConnectionStatus();
       try {
-        logTerm(`🔌 Membuka ${device.name} (${device.serial})...`, 'system');
+        logTerm(`🔌 Connecting to ${device.name} (${device.serial})...`, 'system');
 
         state.usbDevice = device;
         let connection;
@@ -628,7 +859,7 @@
           connection = await device.connect();
         } catch (err) {
           if (err instanceof AdbDaemonWebUsbDevice.DeviceBusyError) {
-            logTerm('❌ Telefon sedang digunakan oleh program lain (adb server / scrcpy).\nTutup scrcpy dan jalankan "adb kill-server" di Terminal Mac, kemudian cuba lagi.', 'error');
+            logTerm('❌ Device is busy or in use by another program (adb server / scrcpy).\nClose scrcpy and run "adb kill-server" in your terminal, then try again.', 'error');
             return;
           }
           throw err;
@@ -637,7 +868,7 @@
         await startAdbSession(connection, device.serial, 'usb');
       } catch (err) {
         console.error(err);
-        logTerm(`❌ Ralat: ${err?.message ?? err}`, 'error');
+        logTerm(`❌ Error: ${err?.message ?? err}`, 'error');
         await disconnect();
       } finally {
         if (!state.adb) state.usbDevice = null;
@@ -654,14 +885,14 @@
       if (switching) {
         const host = await rememberWifiAddress(state.adb, phone.serial, phone.name) || phone.host;
         phone = { ...phone, host };
-        logTerm(`📶 Membuka ADB di ${host}:5555. Kabel boleh dicabut selepas ini.`, 'system');
+        logTerm(`📶 Switching ADB to ${host}:5555. Cable can be unplugged after this.`, 'system');
         state.wifiHandoff = true;
         try {
           await state.adb.tcpip.setPort(5555);
         } catch (err) {
           const message = String(err?.message ?? err);
           if (!/restarting in TCP mode/i.test(message)) {
-            logTerm(`ADB sedang mula semula untuk Wi-Fi (${message}).`, 'system');
+            logTerm(`ADB restarting in Wi-Fi mode (${message}).`, 'system');
           }
         }
         await disconnect(true);
@@ -688,7 +919,7 @@
       updateConnectionStatus();
       let adb;
       try {
-        logTerm(`🔌 ${phone.name} ada pada kabel. Menghidupkan Wi-Fi debugging...`, 'system');
+        logTerm(`🔌 ${phone.name} is connected via cable. Enabling Wi-Fi debugging...`, 'system');
         const connection = await device.connect();
         const transport = await AdbDaemonTransport.authenticate({ serial: device.serial, connection, credentialStore });
         adb = new Adb(transport);
@@ -701,9 +932,9 @@
         return host;
       } catch (err) {
         if (err instanceof AdbDaemonWebUsbDevice.DeviceBusyError) {
-          logTerm('Kabel sedang digunakan oleh adb di Mac. Jalankan "adb kill-server", kemudian cuba lagi.', 'warn');
+          logTerm('Cable is in use by adb on Mac. Run "adb kill-server", then try again.', 'warn');
         } else {
-          logTerm(`Tidak dapat hidupkan Wi-Fi melalui kabel: ${err?.message ?? err}`, 'warn');
+          logTerm(`Could not enable Wi-Fi over cable: ${err?.message ?? err}`, 'warn');
         }
         return null;
       } finally {
@@ -718,7 +949,7 @@
       const port = 5555;
       if (!browserReady() || state.connecting || state.adb) return false;
       if (!host || !isLan(host)) {
-        logTerm('Alamat Wi-Fi telefon belum ada. Sambung dengan kabel dahulu.', 'warn');
+        logTerm('No Wi-Fi address found for this phone yet. Connect with a cable first.', 'warn');
         return false;
       }
       toggleDevices(false);
@@ -729,7 +960,7 @@
       updateConnectionStatus();
       let socket;
       try {
-        logTerm(`📶 Menyambung ke ${phone.name} (${host})...`, 'system');
+        logTerm(`📶 Connecting to ${phone.name} (${host})...`, 'system');
         let lastError = null;
         for (let attempt = 0; attempt < attempts; attempt++) {
           try {
@@ -740,7 +971,7 @@
             lastError = err;
             const message = String(err?.message ?? err);
             if (attempt + 1 < attempts && /ECONNREFUSED|timed out|EHOSTUNREACH|ENETUNREACH|ECONNRESET/i.test(message)) {
-              logTerm(`Menunggu ${phone.name} di ${host}...`, 'system');
+              logTerm(`Waiting for ${phone.name} at ${host}...`, 'system');
               await new Promise((resolve) => setTimeout(resolve, 800));
               continue;
             }
@@ -762,7 +993,14 @@
           ? `${phone.name} did not answer at ${host}. Plug in the cable, close adb on the Mac (adb kill-server), then tap this phone again.`
           : message;
         logTerm(`❌ Wi-Fi: ${state.wifiError}`, 'warn');
-        toggleDevices(true);
+        if (/Wi-Fi bridge/i.test(message)) {
+          logTerm('⚠️ Wi-Fi Bridge Helper is required for wireless connection.', 'warn');
+          logTerm('📥 Please download the Wi-Fi Helper package using the blue Download button at the top.', 'system');
+          logTerm('👉 Extract the ZIP, double-click the script to start the bridge, then try connecting again.', 'system');
+          toggleDownload(true);
+        } else {
+          toggleDevices(true);
+        }
         return false;
       } finally {
         state.connecting = false;
@@ -772,11 +1010,11 @@
 
     function browserReady() {
       if (window.self !== window.top) {
-        logTerm('Halaman ini disekat dalam iframe. Buka terus dalam tab Chrome.', 'error');
+        logTerm('This page is blocked inside an iframe. Please open directly in a browser tab.', 'error');
         return false;
       }
       if (!WebCodecsVideoDecoder.isSupported) {
-        logTerm('Browser ini tidak menyokong WebCodecs untuk video.', 'error');
+        logTerm('This browser does not support WebCodecs video decoding.', 'error');
         return false;
       }
       return true;
@@ -816,8 +1054,8 @@
 
     function openBridgeSocket(host, port, url) {
       const bridgeMissing = location.protocol === 'https:'
-        ? 'Bridge Wi-Fi di Mac tidak dapat dihubungi. Biarkan "node wifi-bridge.mjs" berjalan di Mac. Jika guna Chrome di HTTPS, buka https://127.0.0.1:8766 di tab baru sekali dan klik "Advanced -> Proceed" untuk membenarkan sijil keselamatan.'
-        : 'Bridge Wi-Fi tidak berjalan. Dalam folder webscrcpy, jalankan: node wifi-bridge.mjs';
+        ? 'Wi-Fi bridge is unreachable. Ensure the Wi-Fi Helper is running on your computer. If using HTTPS/Vercel, open https://127.0.0.1:8766 in a new tab once and click "Advanced -> Proceed" to allow the local certificate.'
+        : 'Wi-Fi bridge is not running. Please launch the Wi-Fi Helper or run "node wifi-bridge.mjs".';
       return new Promise((resolve, reject) => {
         let settled = false;
         const ws = new WebSocket(url);
@@ -863,7 +1101,7 @@
               settled = true;
               resolve({ readable, writable, close() { ws.close(); } });
             } else if (msg.type === 'error') {
-              fail(new Error(msg.message || 'Sambungan Wi-Fi gagal.'));
+              fail(new Error(msg.message || 'Wi-Fi connection failed.'));
             }
             return;
           }
@@ -974,7 +1212,7 @@
     }
 
     async function startAdbSession(connection, serial, link) {
-        logTerm('🔐 Jika diminta, tekan "Allow" pada dialog debugging di telefon...', 'warn');
+        logTerm('🔐 If prompted, tap "Allow" on the USB/Wireless debugging dialog on your phone...', 'warn');
         const transport = await AdbDaemonTransport.authenticate({
           serial,
           connection,
@@ -986,7 +1224,7 @@
         if (link === 'usb') state.wifiSerial = serial;
         adb.disconnected.then(() => {
           if (state.wifiHandoff || state.adb !== adb) return;
-          logTerm('⚠️ Peranti terputus.', 'warn');
+          logTerm('⚠️ Device disconnected.', 'warn');
           disconnect();
         });
 
@@ -997,7 +1235,7 @@
         ]);
         if (state.adb !== adb) return;
         txtDeviceName.textContent = `${manufacturer.trim()} ${model.trim()} (Android ${release.trim()})`;
-        logTerm(`✅ ADB bersambung: ${txtDeviceName.textContent}`, 'success');
+        logTerm(`✅ ADB connected: ${txtDeviceName.textContent}`, 'success');
         if (link === 'usb') await rememberWifiAddress(adb, serial, `${manufacturer.trim()} ${model.trim()}`);
         if (state.adb !== adb) return;
         state.connecting = false;
@@ -1008,7 +1246,7 @@
         renderDisplayMode();
         if (state.hasDex) {
           state.displayMode = null;
-          logTerm('Samsung DeX dikesan. Pilih Mirror atau DeX.', 'system');
+          logTerm('Samsung DeX detected. Choose Mirror or DeX.', 'system');
           showModeChooser(true);
         } else {
           state.displayMode = 'mirror';
@@ -1068,14 +1306,14 @@
       showModeChooser(false);
       renderDisplayMode();
       if (mode === 'dex' && state.oneUi > 0 && state.oneUi < 80000) {
-        logTerm('DeX pada paparan maya memerlukan One UI 8. Telefon ini mungkin hanya menunjukkan desktop kosong.', 'warn');
+        logTerm('DeX on virtual displays requires One UI 8. This phone might display a blank desktop.', 'warn');
       }
       try {
         if (state.client) await restartMirror();
         else await startMirror();
       } catch (err) {
         console.error(err);
-        logTerm(`❌ Ralat: ${err?.message ?? err}`, 'error');
+        logTerm(`❌ Error: ${err?.message ?? err}`, 'error');
         if (state.client) await stopMirror();
         else if (state.hasDex) showModeChooser(true);
       }
@@ -1086,9 +1324,9 @@
       if (!adb) return;
       const dex = state.displayMode === 'dex';
 
-      logTerm('📤 Memuat naik scrcpy-server ke telefon...', 'system');
+      logTerm('📤 Pushing scrcpy-server to phone...', 'system');
       const res = await fetch(SERVER_FILE);
-      if (!res.ok) throw new Error(`Gagal memuat ${SERVER_FILE} (HTTP ${res.status})`);
+      if (!res.ok) throw new Error(`Failed to load ${SERVER_FILE} (HTTP ${res.status})`);
       if (state.adb !== adb) return;
       await AdbScrcpyClient.pushServer(adb, res.body);
       if (state.adb !== adb) return;
@@ -1106,8 +1344,8 @@
       });
 
       logTerm(dex
-        ? `🚀 Memulakan DeX (1920x1080, ${state.bitrate} Mbps, ${state.fps} FPS)...`
-        : `🚀 Memulakan scrcpy (${state.resolution}, ${state.bitrate} Mbps, ${state.fps} FPS)...`, 'system');
+        ? `🚀 Starting DeX (1920x1080, ${state.bitrate} Mbps, ${state.fps} FPS)...`
+        : `🚀 Starting scrcpy (${state.resolution}, ${state.bitrate} Mbps, ${state.fps} FPS)...`, 'system');
       const client = await AdbScrcpyClient.start(adb, DefaultServerPath, options);
       if (state.adb !== adb) {
         try { await client.close(); } catch {}
@@ -1120,7 +1358,7 @@
         .catch(() => {});
       client.exited.then(() => {
         if (state.client === client) {
-          logTerm('⚠️ scrcpy server berhenti.', 'warn');
+          logTerm('⚠️ scrcpy server stopped.', 'warn');
           stopMirror();
         }
       });
@@ -1140,7 +1378,7 @@
         layoutCanvas();
       });
       videoStream.stream.pipeTo(decoder.writable).catch((err) => {
-        if (state.decoder === decoder) logTerm(`Video stream ralat: ${err?.message ?? err}`, 'error');
+        if (state.decoder === decoder) logTerm(`Video stream error: ${err?.message ?? err}`, 'error');
       });
 
       showModeChooser(false);
@@ -1155,8 +1393,8 @@
         await client.controller?.setScreenPowerMode(AndroidScreenPowerMode.Off);
       }
       logTerm(dex
-        ? '🖥️ Samsung DeX aktif. Gunakan tetikus dan papan kekunci pada desktop.'
-        : '📡 Mirroring aktif. Klik/seret pada skrin untuk kawal telefon, taip untuk input teks.', 'success');
+        ? '🖥️ Samsung DeX active. Use mouse and keyboard on desktop.'
+        : '📡 Mirroring active. Click/drag to control phone, type for text input.', 'success');
     }
 
     let lastPhoneClipboard = '';
@@ -1172,13 +1410,13 @@
         try {
           await clipboard.writeText(text);
           const preview = text.length > 60 ? `${text.slice(0, 60)}…` : text;
-          logTerm(`📋 Disalin ke Mac: ${preview.replace(/\s+/g, ' ')}`, 'success');
+          logTerm(`📋 Copied to Mac: ${preview.replace(/\s+/g, ' ')}`, 'success');
           return;
         } catch (err) {
           lastError = err;
         }
       }
-      logTerm(`Clipboard Mac gagal: ${lastError?.message ?? lastError}. Pastikan tab webscrcpy atau PiP aktif.`, 'warn');
+      logTerm(`Mac clipboard sync failed: ${lastError?.message ?? lastError}. Ensure the WebScrcpy tab or PiP is active.`, 'warn');
     }
 
     function watchPhoneClipboard(client) {
@@ -1220,7 +1458,7 @@
         await startMirror();
       } catch (err) {
         console.error(err);
-        logTerm(`❌ Ralat: ${err?.message ?? err}`, 'error');
+        logTerm(`❌ Error: ${err?.message ?? err}`, 'error');
         mirrorRestarting = false;
         if (state.client) await stopMirror();
         else if (state.hasDex) showModeChooser(true);
@@ -1259,7 +1497,7 @@
         ...state.wifiPhones.filter((item) => item.serial !== phone.serial && item.host !== phone.host),
       ].slice(0, 8);
       localStorage.setItem('webscrcpy-phones', JSON.stringify(state.wifiPhones));
-      logTerm(`📶 ${phone.name} di ${phone.host}`, 'system');
+      logTerm(`📶 ${phone.name} at ${phone.host}`, 'system');
       renderWifiStatus();
       return phone.host;
     }
@@ -1282,7 +1520,7 @@
           if (host) return saveWifiPhone({ serial, name: name || 'Phone', host, port: 5555 });
         } catch {}
       }
-      logTerm('Telefon tiada alamat Wi-Fi. Pastikan ia bersambung ke rangkaian yang sama dengan Mac.', 'warn');
+      logTerm('Phone has no Wi-Fi address. Ensure it is connected to the same Wi-Fi network as your computer.', 'warn');
       return null;
     }
 
@@ -1318,7 +1556,7 @@
       if (state.wifiHandoff || !state.usbDevice) return;
       if (event.device !== state.usbDevice.raw) return;
       if (state.link !== 'usb' && !state.connecting) return;
-      logTerm('⚠️ Kabel USB dicabut. Sambungan diputuskan.', 'warn');
+      logTerm('⚠️ USB cable unplugged. Connection closed.', 'warn');
       disconnect(true);
     }
     navigator.usb?.addEventListener('disconnect', onUsbDisconnect);
@@ -1336,7 +1574,7 @@
         const devices = await navigator.usb.getDevices();
         if (state.link !== 'usb' || state.usbDevice?.serial !== serial) return;
         if (devices.some((device) => usbSerial(device) === serial)) return;
-        logTerm('⚠️ Kabel USB dicabut. Sambungan diputuskan.', 'warn');
+        logTerm('⚠️ USB cable unplugged. Connection closed.', 'warn');
         disconnect(true);
       } catch {}
     }, 1000);
@@ -1379,8 +1617,61 @@
       };
     }
 
+    function performPinchZoom(zoomIn, pt) {
+      const controller = state.client?.controller;
+      const canvas = videoCanvas;
+      if (!controller || !canvas) return;
+      const { width, height } = surfaceSize(canvas);
+      if (!width || !height) return;
+
+      const cx = pt ? pt.pointerX : Math.round(width / 2);
+      const cy = pt ? pt.pointerY : Math.round(height / 2);
+
+      const startDist = zoomIn ? 70 : 250;
+      const endDist = zoomIn ? 250 : 70;
+      const steps = 4;
+      const interval = 20;
+
+      const sendPair = (dist, action) => {
+        const x0 = Math.round(Math.min(Math.max(cx - dist, 0), width));
+        const x1 = Math.round(Math.min(Math.max(cx + dist, 0), width));
+        const y = cy;
+        const pressure = action === AndroidMotionEventAction.Up ? 0 : 1;
+        controller.injectTouch({
+          action,
+          pointerId: 0n,
+          pointerX: x0,
+          pointerY: y,
+          videoWidth: width,
+          videoHeight: height,
+          pressure,
+          actionButton: 0,
+          buttons: 0,
+        }).catch(() => {});
+        controller.injectTouch({
+          action,
+          pointerId: 1n,
+          pointerX: x1,
+          pointerY: y,
+          videoWidth: width,
+          videoHeight: height,
+          pressure,
+          actionButton: 0,
+          buttons: 0,
+        }).catch(() => {});
+      };
+
+      sendPair(startDist, AndroidMotionEventAction.Down);
+      for (let i = 1; i <= steps; i++) {
+        const currDist = startDist + ((endDist - startDist) * (i / steps));
+        setTimeout(() => sendPair(currDist, AndroidMotionEventAction.Move), i * interval);
+      }
+      setTimeout(() => sendPair(endDist, AndroidMotionEventAction.Up), (steps + 1) * interval);
+    }
+
     function attachInputHandlers(canvas) {
       const activePointers = new Set();
+      let pinchActive = false;
 
       const inject = (e, action) => {
         const controller = state.client?.controller;
@@ -1399,13 +1690,112 @@
       canvas.addEventListener('pointerdown', (e) => {
         canvas.focus();
         canvas.setPointerCapture(e.pointerId);
+
+        // Pinch-to-zoom simulation (Ctrl or Cmd + Click & Drag)
+        if (e.ctrlKey || e.metaKey) {
+          pinchActive = true;
+          const { width, height } = surfaceSize(canvas);
+          const p0 = toDevicePoint(e, canvas);
+          const cx = Math.round(width / 2);
+          const cy = Math.round(height / 2);
+          const p1X = Math.round(Math.min(Math.max(2 * cx - p0.pointerX, 0), width));
+          const p1Y = Math.round(Math.min(Math.max(2 * cy - p0.pointerY, 0), height));
+
+          state.client?.controller?.injectTouch({
+            action: AndroidMotionEventAction.Down,
+            pointerId: 0n,
+            ...p0,
+            pressure: 1,
+            actionButton: 0,
+            buttons: 0,
+          }).catch(() => {});
+
+          state.client?.controller?.injectTouch({
+            action: AndroidMotionEventAction.Down,
+            pointerId: 1n,
+            pointerX: p1X,
+            pointerY: p1Y,
+            videoWidth: width,
+            videoHeight: height,
+            pressure: 1,
+            actionButton: 0,
+            buttons: 0,
+          }).catch(() => {});
+          return;
+        }
+
         activePointers.add(e.pointerId);
         inject(e, AndroidMotionEventAction.Down);
       });
+
       canvas.addEventListener('pointermove', (e) => {
+        if (pinchActive) {
+          const { width, height } = surfaceSize(canvas);
+          const p0 = toDevicePoint(e, canvas);
+          const cx = Math.round(width / 2);
+          const cy = Math.round(height / 2);
+          const p1X = Math.round(Math.min(Math.max(2 * cx - p0.pointerX, 0), width));
+          const p1Y = Math.round(Math.min(Math.max(2 * cy - p0.pointerY, 0), height));
+
+          state.client?.controller?.injectTouch({
+            action: AndroidMotionEventAction.Move,
+            pointerId: 0n,
+            ...p0,
+            pressure: 1,
+            actionButton: 0,
+            buttons: 0,
+          }).catch(() => {});
+
+          state.client?.controller?.injectTouch({
+            action: AndroidMotionEventAction.Move,
+            pointerId: 1n,
+            pointerX: p1X,
+            pointerY: p1Y,
+            videoWidth: width,
+            videoHeight: height,
+            pressure: 1,
+            actionButton: 0,
+            buttons: 0,
+          }).catch(() => {});
+          return;
+        }
+
         if (activePointers.has(e.pointerId)) inject(e, AndroidMotionEventAction.Move);
       });
+
       const release = (e) => {
+        if (pinchActive) {
+          pinchActive = false;
+          const { width, height } = surfaceSize(canvas);
+          const p0 = toDevicePoint(e, canvas);
+          const cx = Math.round(width / 2);
+          const cy = Math.round(height / 2);
+          const p1X = Math.round(Math.min(Math.max(2 * cx - p0.pointerX, 0), width));
+          const p1Y = Math.round(Math.min(Math.max(2 * cy - p0.pointerY, 0), height));
+
+          state.client?.controller?.injectTouch({
+            action: AndroidMotionEventAction.Up,
+            pointerId: 0n,
+            ...p0,
+            pressure: 0,
+            actionButton: 0,
+            buttons: 0,
+          }).catch(() => {});
+
+          state.client?.controller?.injectTouch({
+            action: AndroidMotionEventAction.Up,
+            pointerId: 1n,
+            pointerX: p1X,
+            pointerY: p1Y,
+            videoWidth: width,
+            videoHeight: height,
+            pressure: 0,
+            actionButton: 0,
+            buttons: 0,
+          }).catch(() => {});
+          return;
+        }
+
         if (!activePointers.delete(e.pointerId)) return;
         inject(e, AndroidMotionEventAction.Up);
       };
@@ -1420,6 +1810,14 @@
         const controller = state.client?.controller;
         if (!controller || !surfaceSize(canvas).width) return;
         e.preventDefault();
+
+        // Mac trackpad pinch gesture or Ctrl/Cmd + wheel zoom in games like Clash of Clans
+        if (e.ctrlKey || e.metaKey) {
+          const pt = toDevicePoint(e, canvas);
+          performPinchZoom(e.deltaY < 0, pt);
+          return;
+        }
+
         const clamp = (v) => Math.min(Math.max(v, -1), 1);
         controller.injectScroll({
           ...toDevicePoint(e, canvas),
@@ -1699,11 +2097,11 @@
         return;
       }
       if (!('documentPictureInPicture' in window)) {
-        logTerm('Picture-in-Picture hanya ada dalam tab Chrome biasa. Pratonton Cursor tidak boleh buka tetingkap terapung.', 'error');
+        logTerm('Picture-in-Picture is only available in standard Chrome tabs.', 'error');
         return;
       }
       if (!state.client || videoCanvas.classList.contains('hidden') || !videoCanvas.width) {
-        logTerm('Sambung telefon dahulu, kemudian tekan PiP.', 'warn');
+        logTerm('Connect a phone first, then activate PiP.', 'warn');
         return;
       }
 
@@ -1792,7 +2190,7 @@
       rotateBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         rotateScreen().catch((err) => {
-          logTerm(`Putaran gagal: ${err?.message ?? err}`, 'error');
+          logTerm(`Rotation failed: ${err?.message ?? err}`, 'error');
         });
       });
       const disconnectBtn = doc.createElement('button');
@@ -1888,7 +2286,7 @@
       doc.documentElement.addEventListener('pointerleave', () => setPipDockOpen(false));
       updatePipButton();
       if (!options.replace) {
-        logTerm('Picture-in-Picture aktif. Ctrl+A untuk minimize atau restore. Tetingkap telefon kekal di atas walaupun anda beralih ke Cursor.', 'success');
+        logTerm('Picture-in-Picture active. Ctrl+A to minimize or restore. Window stays on top.', 'success');
       }
     }
 
@@ -1897,7 +2295,7 @@
         console.error(err);
         try { pipWindow?.close(); } catch {}
         closePip();
-        logTerm(`Picture-in-Picture gagal: ${err?.message ?? err}`, 'error');
+        logTerm(`Picture-in-Picture failed: ${err?.message ?? err}`, 'error');
       });
     });
 
@@ -1979,7 +2377,7 @@
     async function sendAdbKey(code) {
       const controller = state.client?.controller;
       if (!controller) {
-        logTerm('Tiada peranti bersambung.', 'warn');
+        logTerm('No device connected.', 'warn');
         return;
       }
       const base = { keyCode: code, repeat: 0, metaState: 0 };
@@ -2032,7 +2430,7 @@
     async function rotateScreen() {
       const adb = state.adb;
       if (!adb) {
-        logTerm('Tiada peranti bersambung.', 'warn');
+        logTerm('No device connected.', 'warn');
         return;
       }
       const landscape = videoCanvas.width > videoCanvas.height;
@@ -2089,15 +2487,15 @@
         return;
       }
       if (!state.adb) {
-        logTerm('Tiada peranti bersambung. Klik "Sambung USB (Pair)" dahulu.', 'warn');
+        logTerm('No device connected. Click "Connect" (USB) first.', 'warn');
         return;
       }
       cmd = cmd.replace(/^adb\s+shell\s+/, '');
       try {
         const output = await state.adb.subprocess.noneProtocol.spawnWaitText(cmd);
-        logTerm(output.trimEnd() || '(tiada output)', 'success');
+        logTerm(output.trimEnd() || '(no output)', 'success');
       } catch (err) {
-        logTerm(`Ralat: ${err?.message ?? err}`, 'error');
+        logTerm(`Error: ${err?.message ?? err}`, 'error');
       }
     });
 
@@ -2117,7 +2515,7 @@
     renderResolution();
     renderDisplayMode();
     updateConnectionStatus();
-    logTerm(navigator.usb ? 'WebUSB tersedia. Sedia untuk sambung.' : 'WebUSB tidak tersedia dalam browser ini.', navigator.usb ? 'success' : 'error');
+    logTerm(navigator.usb ? 'WebUSB is available. Ready to connect.' : 'WebUSB is not supported in this browser.', navigator.usb ? 'success' : 'error');
  
     const btnToggleManualIp = document.getElementById('btnToggleManualIp');
     const formManualIp = document.getElementById('formManualIp');
@@ -2133,7 +2531,7 @@
         e.preventDefault();
         const ip = inputManualIp.value.trim();
         if (!isLan(ip)) {
-          logTerm('Sila masukkan alamat IP tempatan yang sah (contoh: 192.168.1.50).', 'warn');
+          logTerm('Please enter a valid local IP address (e.g. 192.168.1.50).', 'warn');
           return;
         }
         const phone = { serial: ip, name: `Phone (${ip})`, host: ip, port: 5555 };
@@ -2151,24 +2549,24 @@
       try {
         const text = await navigator.clipboard.readText();
         if (!text) {
-          logTerm('Klipbod kosong.', 'warn');
+          logTerm('Clipboard is empty.', 'warn');
           return;
         }
         if (state.client?.controller) {
           await state.client.controller.setClipboard({ content: text, paste: false });
           const preview = text.length > 50 ? `${text.slice(0, 50)}…` : text;
-          logTerm(`📋 Klipbod diselaraskan ke telefon: ${preview.replace(/\s+/g, ' ')}`, 'success');
+          logTerm(`📋 Clipboard synced to phone: ${preview.replace(/\s+/g, ' ')}`, 'success');
         } else if (state.adb) {
           const escapedText = text.replace(/([ "$`\\])/g, '\\$1');
           await state.adb.subprocess.noneProtocol.spawnWaitText(['input', 'text', escapedText]);
           const preview = text.length > 50 ? `${text.slice(0, 50)}…` : text;
-          logTerm(`📋 Teks ditaip ke telefon: ${preview.replace(/\s+/g, ' ')}`, 'success');
+          logTerm(`📋 Text typed to phone: ${preview.replace(/\s+/g, ' ')}`, 'success');
         } else {
-          logTerm('Tiada telefon bersambung.', 'warn');
+          logTerm('No phone connected.', 'warn');
         }
       } catch (err) {
-        console.error('Gagal membaca klipbod:', err);
-        logTerm(`Gagal akses klipbod: ${err?.message ?? err}. Sila benarkan kebenaran klipbod dalam pelayar.`, 'warn');
+        console.error('Failed to read clipboard:', err);
+        logTerm(`Clipboard access denied: ${err?.message ?? err}. Please allow clipboard permission in your browser.`, 'warn');
       }
     });
  
