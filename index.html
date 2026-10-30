@@ -160,36 +160,42 @@
       </p>
     </div>
 
-    <!-- Windows Section (Download Package) -->
-    <div class="space-y-1.5">
-      <a href="./webscrcpy-windows.zip" download="webscrcpy-windows.zip" class="flex items-center justify-between p-3 rounded-xl bg-zinc-950 border border-zinc-800 hover:border-blue-500 hover:bg-blue-500/10 transition group">
-        <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center text-lg">
-            <i class="fa-brands fa-windows"></i>
-          </div>
-          <div class="text-left">
-            <span class="block text-xs font-semibold text-zinc-200 group-hover:text-blue-400 transition">Windows (.zip)</span>
-            <span class="block text-[10px] text-zinc-500">Includes start-windows.bat & wifi-bridge</span>
-          </div>
-        </div>
-        <div class="w-7 h-7 rounded-lg bg-zinc-900 border border-zinc-800 group-hover:border-blue-500/40 flex items-center justify-center transition">
-          <i class="fa-solid fa-download text-xs text-zinc-400 group-hover:text-blue-400 transition"></i>
-        </div>
-      </a>
+    <!-- Windows Section (1-Click PowerShell Command) -->
+    <div class="rounded-xl bg-zinc-950 border border-zinc-800 p-3 space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold text-blue-400 flex items-center gap-1.5">
+          <i class="fa-brands fa-windows text-sm"></i> Windows (1-Click PowerShell Setup)
+        </span>
+        <button id="btnCopyWinCmd" type="button" class="text-[10px] text-zinc-300 hover:text-white px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-700 hover:border-zinc-500 transition flex items-center gap-1">
+          <i class="fa-solid fa-copy text-[9px]"></i> <span id="txtCopyWinCmd">Copy</span>
+        </button>
+      </div>
+      <div class="font-mono text-[10px] text-zinc-300 bg-black/60 p-2 rounded-lg border border-zinc-800/80 break-all select-all">
+        <code id="winInstallCmd">irm https://webscrcpy.vercel.app/install-windows.ps1 | iex</code>
+      </div>
+      <p class="text-[10px] text-zinc-500 leading-normal">
+        Open PowerShell, paste, and press Enter. Automatically starts in the background and closes terminal!
+      </p>
     </div>
 
     <div class="rounded-xl bg-zinc-950/70 border border-zinc-800/80 p-3 space-y-1.5 text-[11px]">
-      <span class="font-medium text-zinc-300 block">Quick Guide:</span>
+      <span class="font-medium text-zinc-300 block">How it works:</span>
       <ul class="text-zinc-400 space-y-1 leading-relaxed list-disc list-inside">
-        <li><strong class="text-zinc-300">Mac users:</strong> Run the copy command above in Terminal once.</li>
-        <li><strong class="text-zinc-300">Windows users:</strong> Download zip, extract, and double-click <span class="text-zinc-300">start-windows.bat</span>.</li>
-        <li>Return to WebScrcpy and click your device under the <span class="text-zinc-200">Wi-Fi</span> section.</li>
+        <li><strong class="text-zinc-300">Mac:</strong> Paste command into Terminal (runs silently in background).</li>
+        <li><strong class="text-zinc-300">Windows:</strong> Paste command into PowerShell (runs silently in background).</li>
+        <li>Return to WebScrcpy and click your device under the <span class="text-zinc-200">Wi-Fi</span> section!</li>
       </ul>
-      <div class="pt-1.5 border-t border-zinc-800/80 flex justify-between items-center text-[10px]">
-        <span class="text-zinc-500">Prefer Mac manual zip?</span>
-        <a href="./webscrcpy-mac.zip" download="webscrcpy-mac.zip" class="text-zinc-400 hover:text-white transition flex items-center gap-1">
-          <i class="fa-solid fa-download text-[9px]"></i> Download Mac .zip
-        </a>
+      <div class="pt-2 border-t border-zinc-800/80 flex items-center justify-between text-[10px]">
+        <span class="text-zinc-500">Manual ZIP downloads:</span>
+        <div class="flex items-center gap-2">
+          <a href="./webscrcpy-windows.zip" download="webscrcpy-windows.zip" class="text-blue-400 hover:text-blue-300 transition flex items-center gap-1">
+            <i class="fa-brands fa-windows text-[9px]"></i> Windows .zip
+          </a>
+          <span class="text-zinc-700">|</span>
+          <a href="./webscrcpy-mac.zip" download="webscrcpy-mac.zip" class="text-emerald-400 hover:text-emerald-300 transition flex items-center gap-1">
+            <i class="fa-brands fa-apple text-[9px]"></i> Mac .zip
+          </a>
+        </div>
       </div>
     </div>
   </div>
@@ -534,6 +540,22 @@
           await navigator.clipboard.writeText(cmd);
           if (txtCopyMacCmd) txtCopyMacCmd.textContent = 'Copied! ✅';
           setTimeout(() => { if (txtCopyMacCmd) txtCopyMacCmd.textContent = 'Copy'; }, 2000);
+        } catch {
+          prompt('Copy this command:', cmd);
+        }
+      });
+    }
+
+    const btnCopyWinCmd = document.getElementById('btnCopyWinCmd');
+    const txtCopyWinCmd = document.getElementById('txtCopyWinCmd');
+    if (btnCopyWinCmd) {
+      btnCopyWinCmd.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const cmd = 'irm https://webscrcpy.vercel.app/install-windows.ps1 | iex';
+        try {
+          await navigator.clipboard.writeText(cmd);
+          if (txtCopyWinCmd) txtCopyWinCmd.textContent = 'Copied! ✅';
+          setTimeout(() => { if (txtCopyWinCmd) txtCopyWinCmd.textContent = 'Copy'; }, 2000);
         } catch {
           prompt('Copy this command:', cmd);
         }
@@ -1017,7 +1039,7 @@
         if (/Wi-Fi bridge/i.test(message)) {
           logTerm('⚠️ Wi-Fi Bridge Helper is required for wireless connection.', 'warn');
           logTerm('👉 Mac: Run "curl -fsSL https://webscrcpy.vercel.app/install-mac.sh | bash" in Terminal.', 'system');
-          logTerm('👉 Windows: Download the Wi-Fi Helper package using the blue Download button above.', 'system');
+          logTerm('👉 Windows: Run "irm https://webscrcpy.vercel.app/install-windows.ps1 | iex" in PowerShell.', 'system');
           toggleDownload(true);
         } else {
           toggleDevices(true);
