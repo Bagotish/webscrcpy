@@ -98,12 +98,24 @@
         <button id="btnChooseDex" class="h-9 px-4 rounded-full border border-zinc-700 text-zinc-200 hover:bg-zinc-800 text-xs font-medium transition">DeX</button>
       </div>
     </div>
-    <div id="idleView" class="flex flex-col items-center text-center gap-3 select-none">
-      <i class="fa-solid fa-mobile-screen text-4xl text-zinc-700"></i>
-      <p class="text-sm text-zinc-400">No device connected</p>
-      <p class="text-xs text-zinc-600 max-w-xs leading-relaxed">
-        Close scrcpy and run <span class="font-mono text-zinc-400">adb kill-server</span> on your Mac, then click Connect and pick your phone.
-      </p>
+    <div id="idleView" class="flex flex-col items-center text-center gap-3.5 select-none px-4">
+      <div class="w-16 h-16 rounded-2xl bg-zinc-900/80 border border-zinc-800 flex items-center justify-center text-zinc-600 text-3xl">
+        <i class="fa-solid fa-mobile-screen"></i>
+      </div>
+      <div class="space-y-1">
+        <p class="text-sm font-medium text-zinc-300">No device connected</p>
+        <p class="text-xs text-zinc-500 max-w-sm leading-relaxed">
+          Connect your phone via USB cable, or setup <span class="text-zinc-300 font-medium">Wi-Fi Helper</span> for wireless mirroring.
+        </p>
+      </div>
+      <div class="flex items-center gap-2 pt-1">
+        <button id="btnIdleConnect" type="button" class="h-8 px-4 rounded-full bg-white text-zinc-900 hover:bg-zinc-200 text-xs font-medium transition flex items-center gap-2">
+          <i class="fa-brands fa-usb"></i> Connect USB
+        </button>
+        <button id="btnIdleWifiHelper" type="button" class="h-8 px-3.5 rounded-full border border-zinc-800 bg-zinc-900 text-zinc-300 hover:text-white hover:bg-zinc-800 text-xs font-medium transition flex items-center gap-1.5">
+          <i class="fa-solid fa-wifi text-emerald-400 text-[11px]"></i> Wi-Fi Setup
+        </button>
+      </div>
     </div>
     <canvas id="videoCanvas" tabindex="0" class="hidden cursor-pointer touch-none outline-none rounded-[22px] shadow-2xl shadow-black" style="max-height: calc(100vh - 6.5rem); max-width: 100%; width: auto; height: auto;"></canvas>
   </main>
@@ -709,23 +721,47 @@
       if (!list) return;
       list.replaceChildren();
       if (state.wifiError) {
-        const note = document.createElement('p');
-        note.className = 'px-2 py-2 text-[11px] text-amber-300 leading-relaxed';
-        note.textContent = state.wifiError;
+        const note = document.createElement('div');
+        note.className = 'p-2.5 text-[11px] text-amber-300 leading-relaxed bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-1.5';
+        const msg = document.createElement('p');
+        msg.textContent = state.wifiError;
+        note.appendChild(msg);
+
+        if (/Wi-Fi bridge/i.test(state.wifiError)) {
+          const actionBtn = document.createElement('button');
+          actionBtn.type = 'button';
+          actionBtn.className = 'w-full py-1 px-2.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[10px] font-medium transition flex items-center justify-center gap-1.5 border border-amber-500/30';
+          actionBtn.innerHTML = '<i class="fa-solid fa-terminal text-[9px]"></i> View 1-Click Terminal Setup';
+          actionBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleDownload(true);
+          });
+          note.appendChild(actionBtn);
+        }
         list.appendChild(note);
       }
       if (!state.wifiPhones.length) {
         const empty = document.createElement('div');
-        empty.className = 'px-2 py-2 text-[11px] space-y-1.5';
-        const msg = document.createElement('p');
-        msg.className = 'text-zinc-500 leading-relaxed';
-        msg.textContent = 'Connect each phone with a cable once, or use Wi-Fi Helper to connect wirelessly.';
-        const link = document.createElement('a');
-        link.href = './webscrcpy-wifi-helper.zip';
-        link.download = 'webscrcpy-wifi-helper.zip';
-        link.className = 'inline-flex items-center gap-1.5 text-[11px] text-emerald-400 hover:text-emerald-300 font-medium';
-        link.innerHTML = '<i class="fa-solid fa-download text-[10px]"></i> Download Wi-Fi Helper (.zip)';
-        empty.append(msg, link);
+        empty.className = 'px-2 py-2.5 text-[11px] space-y-2 rounded-xl bg-zinc-950/60 border border-zinc-800/80';
+        
+        const header = document.createElement('div');
+        header.className = 'flex items-center gap-2 text-zinc-300 font-medium';
+        header.innerHTML = '<i class="fa-solid fa-wifi text-emerald-400 text-xs"></i><span>First time using Wi-Fi?</span>';
+        
+        const desc = document.createElement('p');
+        desc.className = 'text-zinc-400 text-[10px] leading-relaxed';
+        desc.textContent = 'Connect your phone with a USB cable once, or setup the 1-click Wi-Fi Helper for instant wireless mirroring.';
+        
+        const btnHelper = document.createElement('button');
+        btnHelper.type = 'button';
+        btnHelper.className = 'w-full py-1.5 px-3 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[11px] font-medium transition flex items-center justify-center gap-1.5 border border-emerald-500/20';
+        btnHelper.innerHTML = '<i class="fa-solid fa-bolt text-[10px]"></i> Setup Wi-Fi Helper (1-Click)';
+        btnHelper.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleDownload(true);
+        });
+
+        empty.append(header, desc, btnHelper);
         list.appendChild(empty);
         return;
       }
@@ -1893,6 +1929,14 @@
     }
 
     document.getElementById('btnExitPip').addEventListener('click', () => pipWindow?.close());
+    document.getElementById('btnIdleConnect')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleDevices(true);
+    });
+    document.getElementById('btnIdleWifiHelper')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleDownload(true);
+    });
 
     function releasePipStream() {
       pipStream?.getTracks().forEach((track) => track.stop());
