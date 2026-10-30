@@ -5,17 +5,19 @@ import net from 'node:net';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execSync } from 'node:child_process';
 
 const port = Number(process.env.WIFI_BRIDGE_PORT || 8765);
 const securePort = Number(process.env.WIFI_BRIDGE_TLS_PORT || 8766);
 const certDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'wifi-bridge-certs');
 
 function allowedOrigin(origin) {
-  if (!origin) return false;
+  if (!origin || origin === 'null') return true;
   let url;
   try { url = new URL(origin); } catch { return false; }
+  if (url.protocol === 'file:') return true;
   const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
-  if (url.protocol === 'http:' && local) return true;
+  if ((url.protocol === 'http:' || url.protocol === 'https:') && local) return true;
   if (url.protocol === 'https:' && (url.hostname === 'webscrcpy.vercel.app' || url.hostname.endsWith('.vercel.app'))) return true;
   return false;
 }
@@ -208,38 +210,6 @@ function onUpgrade(request, socket, head) {
         tcp.off('error', failDial);
         sendFrame(socket, 0x1, JSON.stringify({ type: 'ok' }));
 
-        // ==========================================
-        // TAMBAHAN: Dengar mesej seterusnya dari pelayar 
-        // (Contoh: untuk arahan Shared Clipboard Sync)
-        // ==========================================
-        (async () => {
-          try {
-            while (true) {
-              const frame = await readFrame(readExact);
-              if (!frame || !frame.payload) break;
-              
-              const msg = JSON.parse(frame.payload.toString('utf8'));
-              
-              // Jika jenis mesej adalah 'clipboard-sync'
-              if (msg.type === 'clipboard-sync' && msg.text) {
-                const textToCopy = msg.text;
-                // Lindungi aksara khas untuk arahan shell ADB
-                const escapedText = textToCopy.replace(/([ "$`\\])/g, '\\$1');
-                
-                exec(`adb shell input text "${escapedText}"`, (err, stdout, stderr) => {
-                  if (err) {
-                    console.error('Gagal sync klipbod ke telefon:', stderr);
-                  } else {
-                    console.log('Klipbod berjaya diselaraskan ke telefon.');
-                  }
-                });
-              }
-            }
-          } catch (e) {
-            // Sambungan WebSocket ditutup atau ralat membaca frame seterusnya
-          }
-        })();
-
         accept(socket, tcp, readExact);
       });
     } catch {
@@ -254,17 +224,32 @@ server.listen(port, '127.0.0.1', () => {
   console.log(`Wi-Fi bridge listening on ws://127.0.0.1:${port}`);
 });
 
-const certFile = path.join(certDir, 'cert.pem');
-const keyFile = path.join(certDir, 'key.pem');
-if (fs.existsSync(certFile) && fs.existsSync(keyFile)) {
-  const secure = https.createServer({
-    cert: fs.readFileSync(certFile),
-    key: fs.readFileSync(keyFile),
-  }, onRequest);
+function loadOrGenerateCerts() {
+  const certFile = path.join(certDir, 'cert.pem');
+  const keyFile = path.join(certDir, 'key.pem');
+  if (fs.existsSync(certFile) && fs.existsSync(keyFile)) {
+    return { cert: fs.readFileSync(certFile), key: fs.readFileSync(keyFile) };
+  }
+  try {
+    fs.mkdirSync(certDir, { recursive: true });
+    execSync(`openssl req -x509 -newkey rsa:2048 -keyout "${keyFile}" -out "${certFile}" -days 365 -nodes -subj "/CN=127.0.0.1" -addext "subjectAltName=IP:127.0.0.1,DNS:localhost"`, { stdio: 'ignore' });
+    if (fs.existsSync(certFile) && fs.existsSync(keyFile)) {
+      console.log('Sijil SSL tempatan (WSS) berjaya dijana secara automatik.');
+      return { cert: fs.readFileSync(certFile), key: fs.readFileSync(keyFile) };
+    }
+  } catch (err) {
+    console.warn('Gagal menjana sijil SSL secara automatik:', err?.message || err);
+  }
+  return null;
+}
+
+const certs = loadOrGenerateCerts();
+if (certs) {
+  const secure = https.createServer(certs, onRequest);
   secure.on('upgrade', onUpgrade);
   secure.listen(securePort, '127.0.0.1', () => {
     console.log(`Wi-Fi bridge listening on wss://127.0.0.1:${securePort}`);
   });
 } else {
-  console.log('No wifi-bridge-certs yet, so https://webscrcpy.vercel.app cannot use Wi-Fi.');
+  console.log('Tiada wifi-bridge-certs, wss://127.0.0.1 tidak aktif (hanya ws://127.0.0.1:8765 aktif).');
 }

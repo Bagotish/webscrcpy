@@ -129,7 +129,14 @@
       <i class="fa-solid fa-plus text-[10px]"></i> Pair a new phone
     </button>
     <div class="space-y-1.5 border-t border-zinc-800 pt-2">
-      <span class="px-1 text-[11px] text-zinc-500">Wi-Fi</span>
+      <div class="flex items-center justify-between px-1">
+        <span class="text-[11px] text-zinc-500">Wi-Fi</span>
+        <button id="btnToggleManualIp" type="button" class="text-[10px] text-zinc-400 hover:text-zinc-200 transition">+ IP Manual</button>
+      </div>
+      <form id="formManualIp" class="hidden flex gap-1.5 px-1 py-1">
+        <input type="text" id="inputManualIp" placeholder="192.168.1.10" class="flex-1 min-w-0 bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1 text-xs text-zinc-200 font-mono placeholder:text-zinc-700 focus:outline-none focus:border-zinc-600">
+        <button type="submit" class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs">Sambung</button>
+      </form>
       <div id="wifiList" class="space-y-1"></div>
     </div>
   </div>
@@ -796,7 +803,7 @@
 
     function openBridgeSocket(host, port, url) {
       const bridgeMissing = location.protocol === 'https:'
-        ? 'Bridge Wi-Fi di Mac tidak dapat dihubungi. Biarkan "node wifi-bridge.mjs" berjalan, dan tekan Allow jika Chrome meminta akses rangkaian tempatan.'
+        ? 'Bridge Wi-Fi di Mac tidak dapat dihubungi. Biarkan "node wifi-bridge.mjs" berjalan di Mac. Jika guna Chrome di HTTPS, buka https://127.0.0.1:8766 di tab baru sekali dan klik "Advanced -> Proceed" untuk membenarkan sijil keselamatan.'
         : 'Bridge Wi-Fi tidak berjalan. Dalam folder webscrcpy, jalankan: node wifi-bridge.mjs';
       return new Promise((resolve, reject) => {
         let settled = false;
@@ -2099,31 +2106,58 @@
     updateConnectionStatus();
     logTerm(navigator.usb ? 'WebUSB tersedia. Sedia untuk sambung.' : 'WebUSB tidak tersedia dalam browser ini.', navigator.usb ? 'success' : 'error');
  
-    document.getElementById('btnSyncClipboard').addEventListener('click', async () => {
-  try {
-    // Baca teks daripada klipbod pelayar web (PC)
-    const text = await navigator.clipboard.readText();
-    if (!text) {
-      alert('Klipbod kosong!');
-      return;
+    const btnToggleManualIp = document.getElementById('btnToggleManualIp');
+    const formManualIp = document.getElementById('formManualIp');
+    const inputManualIp = document.getElementById('inputManualIp');
+
+    if (btnToggleManualIp && formManualIp) {
+      btnToggleManualIp.addEventListener('click', (e) => {
+        e.stopPropagation();
+        formManualIp.classList.toggle('hidden');
+        if (!formManualIp.classList.contains('hidden')) inputManualIp?.focus();
+      });
+      formManualIp.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const ip = inputManualIp.value.trim();
+        if (!isLan(ip)) {
+          logTerm('Sila masukkan alamat IP tempatan yang sah (contoh: 192.168.1.50).', 'warn');
+          return;
+        }
+        const phone = { serial: ip, name: `Phone (${ip})`, host: ip, port: 5555 };
+        saveWifiPhone(phone);
+        formManualIp.classList.add('hidden');
+        inputManualIp.value = '';
+        useWifi(phone).catch((err) => {
+          console.error(err);
+          logTerm(`❌ Wi-Fi: ${err?.message ?? err}`, 'error');
+        });
+      });
     }
 
-    // Hantar teks ke pelayan wifi-bridge melalui WebSocket
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
-        type: 'clipboard-sync',
-        text: text,
-        deviceId: currentDeviceId // Pastikan pembolehubah ID peranti anda dirujuk dengan betul
-      }));
-      console.log('Menghantar teks ke telefon:', text);
-    } else {
-      alert('Sambungan Wi-Fi Bridge terputus.');
-    }
-  } catch (err) {
-    console.error('Gagal membaca klipbod:', err);
-    alert('Sila beri kebenaran akses klipbod pada pelayar anda.');
-  }
-});
+    document.getElementById('btnSyncClipboard').addEventListener('click', async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (!text) {
+          logTerm('Klipbod kosong.', 'warn');
+          return;
+        }
+        if (state.client?.controller) {
+          await state.client.controller.setClipboard({ content: text, paste: false });
+          const preview = text.length > 50 ? `${text.slice(0, 50)}…` : text;
+          logTerm(`📋 Klipbod diselaraskan ke telefon: ${preview.replace(/\s+/g, ' ')}`, 'success');
+        } else if (state.adb) {
+          const escapedText = text.replace(/([ "$`\\])/g, '\\$1');
+          await state.adb.subprocess.noneProtocol.spawnWaitText(['input', 'text', escapedText]);
+          const preview = text.length > 50 ? `${text.slice(0, 50)}…` : text;
+          logTerm(`📋 Teks ditaip ke telefon: ${preview.replace(/\s+/g, ' ')}`, 'success');
+        } else {
+          logTerm('Tiada telefon bersambung.', 'warn');
+        }
+      } catch (err) {
+        console.error('Gagal membaca klipbod:', err);
+        logTerm(`Gagal akses klipbod: ${err?.message ?? err}. Sila benarkan kebenaran klipbod dalam pelayar.`, 'warn');
+      }
+    });
  
  </script>
 </body>
