@@ -146,7 +146,7 @@
     <div class="rounded-xl bg-zinc-950 border border-zinc-800 p-3 space-y-2">
       <div class="flex items-center justify-between">
         <span class="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
-          <i class="fa-brands fa-apple text-sm"></i> macOS (1-Click Terminal Setup)
+          <i class="fa-brands fa-apple text-sm"></i> macOS
         </span>
         <button id="btnCopyMacCmd" type="button" class="text-[10px] text-zinc-300 hover:text-white px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-700 hover:border-zinc-500 transition flex items-center gap-1">
           <i class="fa-solid fa-copy text-[9px]"></i> <span id="txtCopyMacCmd">Copy</span>
@@ -164,7 +164,7 @@
     <div class="rounded-xl bg-zinc-950 border border-zinc-800 p-3 space-y-2">
       <div class="flex items-center justify-between">
         <span class="text-xs font-semibold text-blue-400 flex items-center gap-1.5">
-          <i class="fa-brands fa-windows text-sm"></i> Windows (1-Click PowerShell Setup)
+          <i class="fa-brands fa-windows text-sm"></i> Windows
         </span>
         <button id="btnCopyWinCmd" type="button" class="text-[10px] text-zinc-300 hover:text-white px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-700 hover:border-zinc-500 transition flex items-center gap-1">
           <i class="fa-solid fa-copy text-[9px]"></i> <span id="txtCopyWinCmd">Copy</span>
@@ -538,7 +538,7 @@
         const cmd = 'curl -fsSL https://webscrcpy.vercel.app/install-mac.sh | bash';
         try {
           await navigator.clipboard.writeText(cmd);
-          if (txtCopyMacCmd) txtCopyMacCmd.textContent = 'Copied! ✅';
+          if (txtCopyMacCmd) txtCopyMacCmd.textContent = 'Copied';
           setTimeout(() => { if (txtCopyMacCmd) txtCopyMacCmd.textContent = 'Copy'; }, 2000);
         } catch {
           prompt('Copy this command:', cmd);
@@ -554,7 +554,7 @@
         const cmd = 'irm https://webscrcpy.vercel.app/install-windows.ps1 | iex';
         try {
           await navigator.clipboard.writeText(cmd);
-          if (txtCopyWinCmd) txtCopyWinCmd.textContent = 'Copied! ✅';
+          if (txtCopyWinCmd) txtCopyWinCmd.textContent = 'Copied';
           setTimeout(() => { if (txtCopyWinCmd) txtCopyWinCmd.textContent = 'Copy'; }, 2000);
         } catch {
           prompt('Copy this command:', cmd);
