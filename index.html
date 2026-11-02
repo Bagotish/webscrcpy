@@ -183,10 +183,10 @@
         </button>
       </div>
       <div class="font-mono text-[10px] text-zinc-300 bg-black/60 p-2 rounded-lg border border-zinc-800/80 break-all select-all">
-        <code id="winInstallCmd">irm https://webscrcpy.vercel.app/install-windows.ps1 | iex</code>
+        <code id="winInstallCmd">powershell -ExecutionPolicy Bypass -c "irm https://webscrcpy.vercel.app/install-windows.ps1 | iex"</code>
       </div>
       <p class="text-[10px] text-zinc-500 leading-normal">
-        Open PowerShell, paste, and press Enter. Automatically starts in the background and closes terminal!
+        Works in PowerShell, Command Prompt (CMD), or Windows Terminal. Automatically runs in background!
       </p>
     </div>
 
@@ -563,10 +563,10 @@
     if (btnCopyWinCmd) {
       btnCopyWinCmd.addEventListener('click', async (e) => {
         e.stopPropagation();
-        const cmd = 'irm https://webscrcpy.vercel.app/install-windows.ps1 | iex';
+        const cmd = 'powershell -ExecutionPolicy Bypass -c "irm https://webscrcpy.vercel.app/install-windows.ps1 | iex"';
         try {
           await navigator.clipboard.writeText(cmd);
-          if (txtCopyWinCmd) txtCopyWinCmd.textContent = 'Copied';
+          if (txtCopyWinCmd) txtCopyWinCmd.textContent = 'Copied! ✅';
           setTimeout(() => { if (txtCopyWinCmd) txtCopyWinCmd.textContent = 'Copy'; }, 2000);
         } catch {
           prompt('Copy this command:', cmd);
@@ -1075,7 +1075,7 @@
         if (/Wi-Fi bridge/i.test(message)) {
           logTerm('⚠️ Wi-Fi Bridge Helper is required for wireless connection.', 'warn');
           logTerm('👉 Mac: Run "curl -fsSL https://webscrcpy.vercel.app/install-mac.sh | bash" in Terminal.', 'system');
-          logTerm('👉 Windows: Run "irm https://webscrcpy.vercel.app/install-windows.ps1 | iex" in PowerShell.', 'system');
+          logTerm('👉 Windows: Run \'powershell -ExecutionPolicy Bypass -c "irm https://webscrcpy.vercel.app/install-windows.ps1 | iex"\' in Terminal or CMD.', 'system');
           toggleDownload(true);
         } else {
           toggleDevices(true);
