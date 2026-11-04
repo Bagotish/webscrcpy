@@ -81,6 +81,13 @@
 
   <!-- SCREEN -->
   <main class="relative h-full flex items-center justify-center px-6 pt-16 pb-6">
+    <div id="dropOverlay" class="hidden absolute inset-4 z-50 flex flex-col items-center justify-center bg-zinc-950/85 backdrop-blur-md border-2 border-dashed border-blue-500 rounded-3xl pointer-events-none transition-all">
+      <div class="w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 text-3xl mb-3">
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+      </div>
+      <p class="text-sm font-semibold text-white">Drop file to push to phone</p>
+      <p class="text-xs text-zinc-400 font-mono mt-1">/sdcard/Download/</p>
+    </div>
     <div id="pipView" class="hidden absolute inset-0 flex flex-col items-center justify-center text-center gap-3 select-none">
       <i class="fa-solid fa-clone text-3xl text-zinc-700"></i>
       <p class="text-sm text-zinc-400">Playing in Picture-in-Picture</p>
@@ -123,6 +130,9 @@
   <div id="screenTools" class="hidden fixed left-4 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2">
     <button id="btnFit" type="button" title="Fit to screen" class="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-900/90 text-zinc-300 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
       <i class="fa-solid fa-up-right-and-down-left-from-center text-sm"></i>
+    </button>
+    <button id="btnScreenshot" type="button" title="Copy screenshot to computer & phone clipboard" class="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-900/90 text-zinc-300 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
+      <i class="fa-solid fa-camera text-sm"></i>
     </button>
     <button id="btnZoomIn" type="button" title="Zoom in (or Ctrl + Drag / Trackpad Pinch)" class="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-900/90 text-zinc-300 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
       <i class="fa-solid fa-magnifying-glass-plus text-sm"></i>
@@ -227,19 +237,32 @@
     </div>
 
     <div class="max-h-80 overflow-y-auto term-scroll space-y-3 pr-1">
+      <!-- v1.3.0 -->
+      <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800 space-y-1.5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-emerald-400">v1.3.0</span>
+          <span class="text-[10px] text-zinc-500">04-11-2026</span>
+        </div>
+        <ul class="text-[11px] text-zinc-300 space-y-1 list-disc list-inside">
+          <li><span class="font-medium text-zinc-200">Drag & Drop File Push:</span> Drag and drop files from PC/Mac onto either the main screen or Picture-in-Picture window (including when minimized) to transfer directly to phone's /sdcard/Download/ (no auto-install).</li>
+          <li><span class="font-medium text-zinc-200">1-Click Screenshot:</span> Capture phone screen directly to computer & phone clipboard without saving files to disk.</li>
+          <li><span class="font-medium text-zinc-200">Quick Performance Profiles:</span> 1-click presets in Settings for Gaming (720p · 4M), Balanced (1080p · 8M), and Quality (1080p · 16M).</li>
+        </ul>
+      </div>
+
       <!-- v1.2.0 -->
       <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800 space-y-1.5">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-semibold text-emerald-400">v1.2.0</span>
+          <span class="text-xs font-semibold text-zinc-300">v1.2.0</span>
           <span class="text-[10px] text-zinc-500">30-10-2026</span>
         </div>
-        <ul class="text-[11px] text-zinc-300 space-y-1 list-disc list-inside">
-          <li><span class="font-medium text-zinc-200">Pinch-to-Zoom:</span> Multi-touch zoom support for mobile games (Clash of Clans, and etc) *special request for Azzuri and Matket* via trackpad pinch, Ctrl+drag, or sidebar zoom buttons.</li>
-          <li><span class="font-medium text-zinc-200">Device Management:</span> Easily remove / forget saved Wi-Fi and paired USB devices.</li>
-          <li><span class="font-medium text-zinc-200">Wi-Fi Helper:</span> 1-click script packages for Mac & Windows wireless connections.</li>
-          <li><span class="font-medium text-zinc-200">Shared Clipboard:</span> Sync your PC/Mac clipboard directly to your phone.</li>
-          <li><span class="font-medium text-zinc-200">Manual IP:</span> Connect directly using your phone local IP address.</li>
-          <li><span class="font-medium text-zinc-200">Auto SSL (WSS):</span> Automatically generated local TLS certificates for HTTPS support.</li>
+        <ul class="text-[11px] text-zinc-400 space-y-1 list-disc list-inside">
+          <li><span class="text-zinc-300 font-medium">Pinch-to-Zoom:</span> Multi-touch zoom support for mobile games (Clash of Clans, and etc) *special request for Azzuri and Matket* via trackpad pinch, Ctrl+drag, or sidebar zoom buttons.</li>
+          <li><span class="text-zinc-300 font-medium">Device Management:</span> Easily remove / forget saved Wi-Fi and paired USB devices.</li>
+          <li><span class="text-zinc-300 font-medium">Wi-Fi Helper:</span> 1-click script packages for Mac & Windows wireless connections.</li>
+          <li><span class="text-zinc-300 font-medium">Shared Clipboard:</span> Sync your PC/Mac clipboard directly to your phone.</li>
+          <li><span class="text-zinc-300 font-medium">Manual IP:</span> Connect directly using your phone local IP address.</li>
+          <li><span class="text-zinc-300 font-medium">Auto SSL (WSS):</span> Automatically generated local TLS certificates for HTTPS support.</li>
         </ul>
       </div>
 
@@ -310,6 +333,28 @@
       <div class="grid grid-cols-2 gap-1 p-1 rounded-xl bg-zinc-950 text-xs">
         <button type="button" id="setMirror">Mirror</button>
         <button type="button" id="setDex">DeX</button>
+      </div>
+    </div>
+
+    <!-- Quick Performance Profiles -->
+    <div class="space-y-1.5">
+      <div class="flex items-center justify-between text-[11px]">
+        <span class="text-zinc-500">Quick Profile</span>
+        <span id="txtActiveProfile" class="text-emerald-400 font-medium">Balanced</span>
+      </div>
+      <div class="grid grid-cols-3 gap-1 p-1 rounded-xl bg-zinc-950 text-xs text-center">
+        <button type="button" id="profGaming" class="py-1.5 px-1 rounded-lg text-zinc-400 hover:text-white transition flex flex-col items-center gap-0.5">
+          <span class="font-medium text-[11px]">Gaming</span>
+          <span class="text-[9px] text-zinc-500 font-mono">720p · 4M</span>
+        </button>
+        <button type="button" id="profBalanced" class="py-1.5 px-1 rounded-lg bg-zinc-800 text-white font-medium transition flex flex-col items-center gap-0.5">
+          <span class="font-medium text-[11px]">Balanced</span>
+          <span class="text-[9px] text-zinc-400 font-mono">1080p · 8M</span>
+        </button>
+        <button type="button" id="profQuality" class="py-1.5 px-1 rounded-lg text-zinc-400 hover:text-white transition flex flex-col items-center gap-0.5">
+          <span class="font-medium text-[11px]">Quality</span>
+          <span class="text-[9px] text-zinc-500 font-mono">1080p · 16M</span>
+        </button>
       </div>
     </div>
 
@@ -640,6 +685,57 @@
     });
     document.getElementById('btnZoomIn')?.addEventListener('click', () => performPinchZoom(true));
     document.getElementById('btnZoomOut')?.addEventListener('click', () => performPinchZoom(false));
+
+    async function takeScreenshot() {
+      const canvas = videoCanvas;
+      if (!canvas || !canvas.width || canvas.classList.contains('hidden')) {
+        logTerm('Connect a phone first to take a screenshot.', 'warn');
+        return;
+      }
+      try {
+        canvas.style.transition = 'filter 0.15s ease';
+        canvas.style.filter = 'brightness(2.2)';
+        setTimeout(() => { canvas.style.filter = ''; }, 150);
+
+        canvas.toBlob(async (blob) => {
+          if (!blob) return;
+          let pcCopied = false;
+          try {
+            const item = new ClipboardItem({ 'image/png': blob });
+            await navigator.clipboard.write([item]);
+            pcCopied = true;
+          } catch (err) {
+            console.warn('Computer clipboard write failed:', err);
+          }
+
+          let phoneCopied = false;
+          try {
+            if (state.client?.controller) {
+              await state.client.controller.setClipboard({
+                content: `[Screenshot: ${canvas.width}x${canvas.height} · ${new Date().toLocaleTimeString()}]`,
+                paste: false
+              });
+              phoneCopied = true;
+            }
+          } catch (err) {
+            console.warn('Phone clipboard set failed:', err);
+          }
+
+          if (pcCopied) {
+            logTerm(`📸 Screenshot (${canvas.width}x${canvas.height}) copied to computer clipboard!`, 'success');
+          } else {
+            logTerm('📸 Screenshot captured! Please allow clipboard permission in browser.', 'warn');
+          }
+          if (phoneCopied) {
+            logTerm('📋 Phone clipboard updated.', 'system');
+          }
+        }, 'image/png');
+      } catch (err) {
+        logTerm(`Screenshot failed: ${err?.message ?? err}`, 'error');
+      }
+    }
+    document.getElementById('btnScreenshot')?.addEventListener('click', takeScreenshot);
+
     bindHoldKey(document.getElementById('btnVolUp'), 24);
     bindHoldKey(document.getElementById('btnVolDown'), 25);
     window.addEventListener('resize', layoutCanvas);
@@ -2178,6 +2274,85 @@
       pipSizeKey = key;
     }
 
+    async function pushFileToPhone(file) {
+      if (!state.adb) {
+        logTerm('Cannot transfer file: Phone not connected.', 'warn');
+        return;
+      }
+      const destPath = `/sdcard/Download/${file.name}`;
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+      logTerm(`Pushing ${file.name} (${sizeMb} MB) to ${destPath}...`, 'system');
+
+      try {
+        const sync = await state.adb.sync();
+        try {
+          await sync.write({
+            filename: destPath,
+            file: file.stream(),
+            mtime: Math.floor(file.lastModified / 1000),
+          });
+        } finally {
+          await sync.dispose();
+        }
+        logTerm(`Transferred: ${file.name} -> ${destPath}`, 'success');
+      } catch (err) {
+        console.error('File push failed:', err);
+        logTerm(`File transfer failed for ${file.name}: ${err?.message ?? err}`, 'error');
+      }
+    }
+
+    const dropOverlay = document.getElementById('dropOverlay');
+    let windowDragCounter = 0;
+    const setWindowDropOverlay = (show) => {
+      if (dropOverlay) dropOverlay.classList.toggle('hidden', !show);
+    };
+
+    window.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      windowDragCounter++;
+      if (Array.from(e.dataTransfer?.types || []).includes('Files')) {
+        setWindowDropOverlay(true);
+      }
+    });
+
+    window.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'copy';
+      }
+    });
+
+    window.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      windowDragCounter--;
+      if (windowDragCounter <= 0) {
+        windowDragCounter = 0;
+        setWindowDropOverlay(false);
+      }
+    });
+
+    window.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      windowDragCounter = 0;
+      setWindowDropOverlay(false);
+
+      const files = e.dataTransfer?.files;
+      if (!files || !files.length) return;
+
+      if (!state.adb) {
+        logTerm('Cannot transfer files: Phone not connected.', 'error');
+        return;
+      }
+
+      for (const file of files) {
+        await pushFileToPhone(file);
+      }
+    });
+
     async function enterPip(options = {}) {
       if (pipWindow && !options.replace) {
         pipWindow.close();
@@ -2371,6 +2546,98 @@
       });
       doc.documentElement.addEventListener('pointerenter', () => setPipDockOpen(true));
       doc.documentElement.addEventListener('pointerleave', () => setPipDockOpen(false));
+
+      const dropOverlay = doc.createElement('div');
+      dropOverlay.id = 'pipDropOverlay';
+      dropOverlay.style.cssText = 'position:fixed;inset:0;background:rgba(9,9,11,0.92);backdrop-filter:blur(6px);z-index:9999;display:none;align-items:center;justify-content:center;pointer-events:none;color:#fff;font-family:Inter,sans-serif;text-align:center;border:2px dashed #3b82f6;box-sizing:border-box;';
+      doc.body.append(dropOverlay);
+
+      let dragCounter = 0;
+      let overlayResetTimer = null;
+      const setDropOverlay = (show, statusText = '') => {
+        clearTimeout(overlayResetTimer);
+        if (!show) {
+          dropOverlay.style.display = 'none';
+          return;
+        }
+        if (pipMinimized) {
+          dropOverlay.style.flexDirection = 'row';
+          dropOverlay.style.gap = '8px';
+          dropOverlay.style.padding = '0 10px';
+          dropOverlay.innerHTML = statusText
+            ? `<span style="font-size:15px;line-height:1;">📥</span><span style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;">${statusText}</span>`
+            : `<span style="font-size:15px;line-height:1;">📥</span><span style="font-size:11px;font-weight:600;white-space:nowrap;">Drop file to phone</span>`;
+        } else {
+          dropOverlay.style.flexDirection = 'column';
+          dropOverlay.style.gap = '6px';
+          dropOverlay.style.padding = '12px';
+          dropOverlay.innerHTML = statusText
+            ? `<div style="font-size:24px;line-height:1;">📥</div><div style="font-size:12px;font-weight:600;max-width:90%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${statusText}</div><div style="font-size:10px;color:#a1a1aa;font-family:monospace;">/sdcard/Download/</div>`
+            : `<div style="font-size:24px;line-height:1;">📥</div><div style="font-size:12px;font-weight:600;">Drop file to push to phone</div><div style="font-size:10px;color:#a1a1aa;font-family:monospace;">/sdcard/Download/</div>`;
+        }
+        dropOverlay.style.display = 'flex';
+      };
+
+      const handleDragEnter = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter++;
+        if (Array.from(e.dataTransfer?.types || []).includes('Files')) {
+          setDropOverlay(true);
+        }
+      };
+
+      const handleDragOver = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.dataTransfer) {
+          e.dataTransfer.dropEffect = 'copy';
+        }
+      };
+
+      const handleDragLeave = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter--;
+        if (dragCounter <= 0 || !e.relatedTarget || !doc.contains(e.relatedTarget)) {
+          dragCounter = 0;
+          setDropOverlay(false);
+        }
+      };
+
+      const handleDrop = async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter = 0;
+
+        const files = e.dataTransfer?.files;
+        if (!files || !files.length) {
+          setDropOverlay(false);
+          return;
+        }
+
+        if (!state.adb) {
+          logTerm('Cannot transfer files: Phone not connected.', 'error');
+          setDropOverlay(true, 'Phone not connected');
+          overlayResetTimer = setTimeout(() => setDropOverlay(false), 2000);
+          return;
+        }
+
+        for (const file of files) {
+          setDropOverlay(true, `Pushing ${file.name}...`);
+          await pushFileToPhone(file);
+        }
+        setDropOverlay(true, `Saved ${files.length} file(s)!`);
+        overlayResetTimer = setTimeout(() => setDropOverlay(false), 2000);
+      };
+
+      [win, doc, doc.body].forEach((target) => {
+        target.addEventListener('dragenter', handleDragEnter);
+        target.addEventListener('dragover', handleDragOver);
+        target.addEventListener('dragleave', handleDragLeave);
+        target.addEventListener('drop', handleDrop);
+      });
+
       updatePipButton();
       if (!options.replace) {
         logTerm('Picture-in-Picture active. Ctrl+A to minimize or restore. Window stays on top.', 'success');
@@ -2471,8 +2738,76 @@
       await controller.injectKeyCode({ ...base, action: AndroidKeyEventAction.Down });
       await controller.injectKeyCode({ ...base, action: AndroidKeyEventAction.Up });
     }
+
+    function markCustomProfile() {
+      const txtProfile = document.getElementById('txtActiveProfile');
+      if (txtProfile) txtProfile.textContent = 'Custom';
+      const unselected = 'py-1.5 px-1 rounded-lg text-zinc-400 hover:text-white transition flex flex-col items-center gap-0.5';
+      const btnG = document.getElementById('profGaming');
+      const btnB = document.getElementById('profBalanced');
+      const btnQ = document.getElementById('profQuality');
+      if (btnG) btnG.className = unselected;
+      if (btnB) btnB.className = unselected;
+      if (btnQ) btnQ.className = unselected;
+    }
+
+    function applyQualityProfile(profile) {
+      const txtProfile = document.getElementById('txtActiveProfile');
+      const btnG = document.getElementById('profGaming');
+      const btnB = document.getElementById('profBalanced');
+      const btnQ = document.getElementById('profQuality');
+
+      const unselected = 'py-1.5 px-1 rounded-lg text-zinc-400 hover:text-white transition flex flex-col items-center gap-0.5';
+      const selected = 'py-1.5 px-1 rounded-lg bg-zinc-800 text-white font-medium transition flex flex-col items-center gap-0.5';
+
+      let res = '1080p';
+      let bitrate = 8;
+      let fps = 60;
+      let label = 'Balanced';
+
+      if (profile === 'gaming') {
+        res = '720p';
+        bitrate = 4;
+        fps = 60;
+        label = 'Gaming (720p · 4M)';
+      } else if (profile === 'quality') {
+        res = '1080p';
+        bitrate = 16;
+        fps = 60;
+        label = 'Quality (1080p · 16M)';
+      } else {
+        res = '1080p';
+        bitrate = 8;
+        fps = 60;
+        label = 'Balanced (1080p · 8M)';
+      }
+
+      if (btnG) btnG.className = profile === 'gaming' ? selected : unselected;
+      if (btnB) btnB.className = profile === 'balanced' ? selected : unselected;
+      if (btnQ) btnQ.className = profile === 'quality' ? selected : unselected;
+      if (txtProfile) txtProfile.textContent = label.split(' ')[0];
+
+      state.bitrate = bitrate;
+      state.fps = fps;
+
+      const rBitrate = document.getElementById('rangeBitrate');
+      const rFps = document.getElementById('rangeFps');
+      if (rBitrate) rBitrate.value = String(bitrate);
+      if (rFps) rFps.value = String(fps);
+      document.getElementById('txtBitrate').textContent = `${bitrate} Mbps`;
+      document.getElementById('txtFps').textContent = `${fps} FPS`;
+
+      setResolution(res);
+      logTerm(`Applied ${label} performance profile.`, 'system');
+    }
+
+    document.getElementById('profGaming')?.addEventListener('click', () => applyQualityProfile('gaming'));
+    document.getElementById('profBalanced')?.addEventListener('click', () => applyQualityProfile('balanced'));
+    document.getElementById('profQuality')?.addEventListener('click', () => applyQualityProfile('quality'));
+
     document.getElementById('rangeBitrate').addEventListener('input', (e) => {
       document.getElementById('txtBitrate').textContent = `${e.target.value} Mbps`;
+      markCustomProfile();
     });
     document.getElementById('rangeBitrate').addEventListener('change', (e) => {
       state.bitrate = Number(e.target.value);
@@ -2480,6 +2815,7 @@
     });
     document.getElementById('rangeFps').addEventListener('input', (e) => {
       document.getElementById('txtFps').textContent = `${e.target.value} FPS`;
+      markCustomProfile();
     });
     document.getElementById('rangeFps').addEventListener('change', (e) => {
       state.fps = Number(e.target.value);
