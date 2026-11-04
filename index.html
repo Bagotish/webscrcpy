@@ -81,12 +81,16 @@
 
   <!-- SCREEN -->
   <main class="relative h-full flex items-center justify-center px-6 pt-16 pb-6">
-    <div id="dropOverlay" class="hidden absolute inset-4 z-50 flex flex-col items-center justify-center bg-zinc-950/85 backdrop-blur-md border-2 border-dashed border-blue-500 rounded-3xl pointer-events-none transition-all">
-      <div class="w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 text-3xl mb-3">
-        <i class="fa-solid fa-cloud-arrow-up"></i>
+    <div id="dropOverlay" class="hidden absolute inset-4 z-50 flex flex-col items-center justify-center bg-zinc-950/85 backdrop-blur-md border border-dashed border-zinc-700/80 rounded-3xl pointer-events-none transition-all">
+      <div class="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300 mb-3 shadow-lg">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="5" y="2" width="14" height="20" rx="3"/>
+          <path d="M12 6v8m0 0l-3-3m3 3l3-3"/>
+          <path d="M10 18h4"/>
+        </svg>
       </div>
-      <p class="text-sm font-semibold text-white">Drop file to push to phone</p>
-      <p class="text-xs text-zinc-400 font-mono mt-1">/sdcard/Download/</p>
+      <p class="text-sm font-medium text-zinc-200">Drop file to push to phone</p>
+      <p class="text-xs text-zinc-500 font-mono mt-0.5">/sdcard/Download/</p>
     </div>
     <div id="pipView" class="hidden absolute inset-0 flex flex-col items-center justify-center text-center gap-3 select-none">
       <i class="fa-solid fa-clone text-3xl text-zinc-700"></i>
@@ -2549,12 +2553,17 @@
 
       const dropOverlay = doc.createElement('div');
       dropOverlay.id = 'pipDropOverlay';
-      dropOverlay.style.cssText = 'position:fixed;inset:0;background:rgba(9,9,11,0.92);backdrop-filter:blur(6px);z-index:9999;display:none;align-items:center;justify-content:center;pointer-events:none;color:#fff;font-family:Inter,sans-serif;text-align:center;border:2px dashed #3b82f6;box-sizing:border-box;';
+      dropOverlay.style.cssText = 'position:fixed;inset:0;background:rgba(9,9,11,0.92);backdrop-filter:blur(6px);z-index:9999;display:none;align-items:center;justify-content:center;pointer-events:none;color:#fff;font-family:Inter,sans-serif;text-align:center;border:1px dashed rgba(255,255,255,0.28);box-sizing:border-box;';
       doc.body.append(dropOverlay);
+
+      const iconPhoneMin = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;opacity:0.9;"><rect x="5" y="2" width="14" height="20" rx="2.5"/><path d="M12 6v8m0 0l-2.5-2.5m2.5 2.5l2.5-2.5"/><path d="M10 18h4"/></svg>';
+      const iconPhoneFull = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.9;margin-bottom:2px;"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M12 6v8m0 0l-3-3m3 3l3-3"/><path d="M10 18h4"/></svg>';
+      const iconCheckMin = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M20 6L9 17l-5-5"/></svg>';
+      const iconCheckFull = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:2px;"><path d="M20 6L9 17l-5-5"/></svg>';
 
       let dragCounter = 0;
       let overlayResetTimer = null;
-      const setDropOverlay = (show, statusText = '') => {
+      const setDropOverlay = (show, statusText = '', isSuccess = false) => {
         clearTimeout(overlayResetTimer);
         if (!show) {
           dropOverlay.style.display = 'none';
@@ -2564,16 +2573,18 @@
           dropOverlay.style.flexDirection = 'row';
           dropOverlay.style.gap = '8px';
           dropOverlay.style.padding = '0 10px';
+          const icon = isSuccess ? iconCheckMin : iconPhoneMin;
           dropOverlay.innerHTML = statusText
-            ? `<span style="font-size:15px;line-height:1;">📥</span><span style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;">${statusText}</span>`
-            : `<span style="font-size:15px;line-height:1;">📥</span><span style="font-size:11px;font-weight:600;white-space:nowrap;">Drop file to phone</span>`;
+            ? `${icon}<span style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;">${statusText}</span>`
+            : `${icon}<span style="font-size:11px;font-weight:600;white-space:nowrap;">Drop file to phone</span>`;
         } else {
           dropOverlay.style.flexDirection = 'column';
           dropOverlay.style.gap = '6px';
           dropOverlay.style.padding = '12px';
+          const icon = isSuccess ? iconCheckFull : iconPhoneFull;
           dropOverlay.innerHTML = statusText
-            ? `<div style="font-size:24px;line-height:1;">📥</div><div style="font-size:12px;font-weight:600;max-width:90%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${statusText}</div><div style="font-size:10px;color:#a1a1aa;font-family:monospace;">/sdcard/Download/</div>`
-            : `<div style="font-size:24px;line-height:1;">📥</div><div style="font-size:12px;font-weight:600;">Drop file to push to phone</div><div style="font-size:10px;color:#a1a1aa;font-family:monospace;">/sdcard/Download/</div>`;
+            ? `${icon}<div style="font-size:12px;font-weight:600;max-width:90%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${statusText}</div><div style="font-size:10px;color:#a1a1aa;font-family:monospace;">/sdcard/Download/</div>`
+            : `${icon}<div style="font-size:12px;font-weight:600;">Drop file to push to phone</div><div style="font-size:10px;color:#a1a1aa;font-family:monospace;">/sdcard/Download/</div>`;
         }
         dropOverlay.style.display = 'flex';
       };
@@ -2627,7 +2638,7 @@
           setDropOverlay(true, `Pushing ${file.name}...`);
           await pushFileToPhone(file);
         }
-        setDropOverlay(true, `Saved ${files.length} file(s)!`);
+        setDropOverlay(true, `Saved ${files.length} file(s)!`, true);
         overlayResetTimer = setTimeout(() => setDropOverlay(false), 2000);
       };
 
