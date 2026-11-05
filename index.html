@@ -25,31 +25,136 @@
 
   <style>
     body { background-color: #0a0a0b; color: #e4e4e7; font-family: 'Inter', sans-serif; }
+    .hidden { display: none !important; }
     .term-scroll::-webkit-scrollbar { width: 4px; }
     .term-scroll::-webkit-scrollbar-thumb { background: #27272a; border-radius: 4px; }
     canvas { touch-action: none; user-select: none; }
-    body.is-fullscreen header { opacity: 0; transition: opacity .15s ease; }
+    body.is-fullscreen {
+      background-color: #000000 !important;
+    }
+    body.is-fullscreen header {
+      opacity: 0 !important;
+      pointer-events: none !important;
+      transition: opacity .15s ease;
+    }
     body.is-fullscreen header:hover,
-    body.is-fullscreen header:focus-within { opacity: 1; }
-    body.is-fullscreen main { padding: 0 !important; }
+    body.is-fullscreen header:focus-within {
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+    body.is-fullscreen #screenTools {
+      opacity: 0 !important;
+      pointer-events: none !important;
+      transition: opacity .15s ease;
+    }
+    body.is-fullscreen:hover #screenTools,
+    body.is-fullscreen #screenTools:hover {
+      opacity: 0.9 !important;
+      pointer-events: auto !important;
+    }
+    body.is-fullscreen main {
+      padding: 0 !important;
+      margin: 0 !important;
+      height: 100vh !important;
+      max-height: 100vh !important;
+      width: 100vw !important;
+      max-width: 100vw !important;
+      overflow: hidden !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
     body.is-fullscreen #videoCanvas {
       max-height: 100vh !important;
+      height: 100vh !important;
       max-width: 100vw !important;
+      width: auto !important;
       border-radius: 0 !important;
+      box-shadow: none !important;
+      border: none !important;
+      outline: none !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    body.is-fullscreen #dropOverlay {
+      inset: 0 !important;
+      border-radius: 0 !important;
+    }
+    body.is-fullscreen #remoteCard {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      backdrop-filter: none !important;
+      padding: 0 !important;
+    }
+    body.is-fullscreen #remoteView {
+      max-height: 100vh !important;
+      height: 100vh !important;
+      padding: 0.5rem 0 !important;
+      border: none !important;
       box-shadow: none !important;
     }
     input[type=range] { accent-color: #e4e4e7; }
     .popout { transition: opacity .15s ease, transform .15s ease; }
     .popout.closed { opacity: 0; transform: translateY(-6px) scale(.98); pointer-events: none; }
+
+    /* Remote Scale Variations */
+    #remoteView.remote-scale-compact { max-width: 320px; }
+    #remoteView.remote-scale-compact .remote-dpad-circle { width: 9.5rem; height: 9.5rem; }
+    #remoteView.remote-scale-compact .remote-dpad-ok { width: 3.5rem; height: 3.5rem; font-size: 0.7rem; }
+    #remoteView.remote-scale-compact .remote-dpad-tb { inset-inline: 2.75rem; height: 2.25rem; }
+    #remoteView.remote-scale-compact .remote-dpad-lr { inset-block: 2.75rem; width: 2.25rem; }
+
+    #remoteView.remote-scale-normal { max-width: 384px; }
+    #remoteView.remote-scale-normal .remote-dpad-circle { width: 11rem; height: 11rem; }
+    #remoteView.remote-scale-normal .remote-dpad-ok { width: 4rem; height: 4rem; font-size: 0.75rem; }
+    #remoteView.remote-scale-normal .remote-dpad-tb { inset-inline: 3.5rem; height: 2.5rem; }
+    #remoteView.remote-scale-normal .remote-dpad-lr { inset-block: 3.5rem; width: 2.5rem; }
+
+    #remoteView.remote-scale-large { max-width: 460px; }
+    #remoteView.remote-scale-large .remote-dpad-circle { width: 13.5rem; height: 13.5rem; }
+    #remoteView.remote-scale-large .remote-dpad-ok { width: 4.75rem; height: 4.75rem; font-size: 0.875rem; }
+    #remoteView.remote-scale-large .remote-dpad-tb { inset-inline: 4.25rem; height: 3.25rem; }
+    #remoteView.remote-scale-large .remote-dpad-lr { inset-block: 4.25rem; width: 3.25rem; }
+
+    /* Customizing mode dashed outline & states */
+    .remote-customizing .remote-section {
+      border: 1px dashed rgba(82, 82, 91, 0.7);
+      padding: 6px;
+      border-radius: 18px;
+      background: rgba(24, 24, 27, 0.4);
+    }
+    .remote-section.is-hidden {
+      display: none;
+    }
+    .remote-customizing .remote-section.is-hidden {
+      display: block !important;
+      opacity: 0.55;
+      border-color: rgba(239, 68, 68, 0.45);
+      background: rgba(239, 68, 68, 0.05);
+    }
+    .remote-customizing .remote-section.is-hidden .remote-sec-content {
+      display: none !important;
+    }
   </style>
 </head>
 <body class="h-full overflow-hidden selection:bg-zinc-700">
 
   <!-- TOP BAR -->
   <header class="fixed top-0 inset-x-0 z-30 flex items-center justify-between px-5 py-4">
-    <div class="flex items-center gap-2.5 min-w-0">
-      <span id="statusDot" class="w-2 h-2 rounded-full bg-zinc-600 shrink-0"></span>
-      <span id="txtDeviceName" class="text-sm text-zinc-400 truncate">No device connected</span>
+    <div class="flex items-center gap-3 min-w-0">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <span id="statusDot" class="w-2 h-2 rounded-full bg-zinc-600 shrink-0"></span>
+        <span id="txtDeviceName" class="text-sm text-zinc-400 truncate">No device connected</span>
+      </div>
+      <div id="viewModeSwitch" class="flex items-center p-0.5 rounded-full bg-zinc-900 border border-zinc-800 text-xs shrink-0">
+        <button type="button" id="btnModeMirror" class="px-2.5 py-1 rounded-full bg-zinc-800 text-white font-medium transition flex items-center gap-1.5">
+          <i class="fa-solid fa-mobile-screen text-[10px]"></i><span>Mirror</span>
+        </button>
+        <button type="button" id="btnModeRemote" class="px-2.5 py-1 rounded-full text-zinc-400 hover:text-white transition flex items-center gap-1.5">
+          <i class="fa-solid fa-gamepad text-[10px]"></i><span>Remote</span>
+        </button>
+      </div>
     </div>
 
     <div class="flex items-center gap-3">
@@ -98,15 +203,17 @@
       <p class="text-xs text-zinc-600">Ctrl+A minimizes or restores. Hover the small button to open the controls.</p>
       <button id="btnExitPip" class="h-8 px-4 rounded-full border border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white text-xs transition">Back to this tab</button>
     </div>
-    <div id="modeChooser" class="hidden absolute inset-0 z-10 flex flex-col items-center justify-center text-center gap-4 select-none px-6">
-      <i class="fa-solid fa-display text-4xl text-zinc-700"></i>
+    <div id="modeChooser" class="hidden flex flex-col items-center justify-center text-center gap-3.5 select-none px-6">
+      <div class="w-16 h-16 rounded-2xl bg-zinc-900/80 border border-zinc-800 flex items-center justify-center text-zinc-500 text-3xl">
+        <i class="fa-solid fa-display"></i>
+      </div>
       <div class="space-y-1">
-        <p class="text-sm text-zinc-200">Samsung DeX is available</p>
+        <p class="text-sm font-medium text-zinc-200">Samsung DeX is available</p>
         <p id="modeChooserHint" class="text-xs text-zinc-500 max-w-sm leading-relaxed">Mirror the phone screen, or open the DeX desktop.</p>
       </div>
-      <div class="flex items-center gap-2">
-        <button id="btnChooseMirror" class="h-9 px-4 rounded-full bg-white text-zinc-900 hover:bg-zinc-200 text-xs font-medium transition">Mirror</button>
-        <button id="btnChooseDex" class="h-9 px-4 rounded-full border border-zinc-700 text-zinc-200 hover:bg-zinc-800 text-xs font-medium transition">DeX</button>
+      <div class="flex items-center gap-2 pt-1">
+        <button id="btnChooseMirror" class="h-8 px-5 rounded-full bg-white text-zinc-900 hover:bg-zinc-200 text-xs font-medium transition">Mirror</button>
+        <button id="btnChooseDex" class="h-8 px-5 rounded-full border border-zinc-700 text-zinc-200 hover:bg-zinc-800 text-xs font-medium transition">DeX</button>
       </div>
     </div>
     <div id="idleView" class="flex flex-col items-center text-center gap-3.5 select-none px-4">
@@ -129,9 +236,351 @@
       </div>
     </div>
     <canvas id="videoCanvas" tabindex="0" class="hidden cursor-pointer touch-none outline-none rounded-[22px] shadow-2xl shadow-black" style="max-height: calc(100vh - 6.5rem); max-width: 100%; width: auto; height: auto;"></canvas>
+
+    <!-- REMOTE CONTROL MODE VIEW -->
+    <div id="remoteView" class="hidden w-full max-w-sm max-h-[calc(100vh-5.5rem)] flex flex-col justify-start py-2 select-none overflow-y-auto term-scroll px-1 z-20">
+      <div id="remoteCard" class="rounded-3xl bg-zinc-900/95 backdrop-blur-md border border-zinc-800 p-4 sm:p-5 shadow-2xl space-y-3.5">
+        <!-- Top status & power bar (Fixed across all layouts) -->
+        <div class="flex items-center justify-between pb-2 border-b border-zinc-800/60">
+          <div class="flex items-center gap-2 min-w-0">
+            <span id="remoteStatusDot" class="w-2.5 h-2.5 rounded-full bg-zinc-600 shrink-0"></span>
+            <span id="remoteStatusText" class="text-xs font-medium text-zinc-300 truncate">Remote Control</span>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <button id="btnRemoteCustomize" type="button" title="Customize Layout 1 (Reorder, Size, Hide/Show)" class="h-7 px-2.5 rounded-full border border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-white text-[11px] font-medium transition flex items-center gap-1">
+              <i class="fa-solid fa-sliders text-[10px]"></i>
+              <span id="remoteCustomizeText">Customize</span>
+            </button>
+            <button id="btnRemoteScreenOff" type="button" title="Toggle Phone Screen Off (Keeps Phone Cool & Saves Battery)" class="h-7 px-2.5 rounded-full border border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-white text-[11px] font-medium transition flex items-center gap-1">
+              <span id="remoteScreenOffIcon">●</span>
+              <span id="remoteScreenOffText">Screen Off</span>
+            </button>
+            <button id="btnRemotePower" type="button" title="Power / Lock Phone" class="w-7 h-7 rounded-full border border-zinc-800 bg-zinc-950 text-red-400 hover:text-red-300 hover:bg-zinc-800 text-xs transition flex items-center justify-center">
+              <i class="fa-solid fa-power-off"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Layout Selector Tabs -->
+        <div class="flex items-center gap-1 p-1 rounded-2xl bg-zinc-950 border border-zinc-800 text-xs">
+          <button type="button" id="tabRemoteLayout1" class="flex-1 py-1.5 px-2 rounded-xl text-center text-[11px] font-medium transition text-white bg-zinc-800 shadow-sm">
+            Layout 1
+          </button>
+          <button type="button" id="tabRemoteLayout2" class="flex-1 py-1.5 px-2 rounded-xl text-center text-[11px] font-medium transition text-zinc-400 hover:text-white">
+            Layout 2 (Apple TV)
+          </button>
+          <button type="button" id="tabRemoteLayout3" class="flex-1 py-1.5 px-2 rounded-xl text-center text-[11px] font-medium transition text-zinc-400 hover:text-white">
+            Layout 3 (Pictured)
+          </button>
+        </div>
+
+        <!-- ================= LAYOUT 1: FULL MODULAR / ADJUSTABLE REMOTE ================= -->
+        <div id="layoutView1" class="space-y-4">
+          <!-- Customize Bar (shown only when Customize mode is toggled ON) -->
+          <div id="remoteCustomizeBar" class="hidden p-2.5 rounded-2xl bg-zinc-950 border border-zinc-800/90 space-y-2">
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-zinc-400 text-[11px] font-medium flex items-center gap-1.5">
+                <i class="fa-solid fa-up-down-left-right text-[10px] text-blue-400"></i> Size:
+              </span>
+              <div class="flex items-center gap-1 bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 text-[10px]">
+                <button type="button" id="btnScaleCompact" class="px-2 py-0.5 rounded text-zinc-400 hover:text-white transition">Compact</button>
+                <button type="button" id="btnScaleNormal" class="px-2 py-0.5 rounded bg-zinc-800 text-white font-medium transition">Normal</button>
+                <button type="button" id="btnScaleLarge" class="px-2 py-0.5 rounded text-zinc-400 hover:text-white transition">Large</button>
+              </div>
+            </div>
+            <div class="flex items-center justify-between pt-1 border-t border-zinc-800/80 text-[10px]">
+              <span class="text-zinc-500">Reorder with ▲ ▼ or toggle 👁</span>
+              <button type="button" id="btnResetRemoteLayout" class="text-zinc-400 hover:text-zinc-200 underline">Reset Layout</button>
+            </div>
+          </div>
+
+          <!-- Modular Adjustable Sections Container -->
+          <div id="remoteSectionsContainer" class="space-y-4">
+            <!-- Section: Android System Navigation -->
+            <div class="remote-section space-y-1.5" data-section="nav">
+              <div class="remote-sec-bar hidden items-center justify-between px-1 text-[10px] text-zinc-500 font-medium">
+                <span class="sec-label">System Navigation</span>
+                <div class="flex items-center gap-1">
+                  <button type="button" class="btn-sec-up w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Move Up"><i class="fa-solid fa-chevron-up text-[9px]"></i></button>
+                  <button type="button" class="btn-sec-down w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Move Down"><i class="fa-solid fa-chevron-down text-[9px]"></i></button>
+                  <button type="button" class="btn-sec-toggle w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Hide/Show"><i class="fa-solid fa-eye text-[9px]"></i></button>
+                </div>
+              </div>
+              <div class="remote-sec-content grid grid-cols-4 gap-1.5">
+                <button id="btnNavBack" type="button" title="Back" class="py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-400 hover:text-white active:bg-zinc-800 transition flex flex-col items-center gap-1">
+                  <i class="fa-solid fa-arrow-left text-xs"></i>
+                  <span class="text-[10px]">Back</span>
+                </button>
+                <button id="btnNavHome" type="button" title="Home" class="py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-400 hover:text-white active:bg-zinc-800 transition flex flex-col items-center gap-1">
+                  <i class="fa-solid fa-house text-xs"></i>
+                  <span class="text-[10px]">Home</span>
+                </button>
+                <button id="btnNavRecents" type="button" title="Recent Apps" class="py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-400 hover:text-white active:bg-zinc-800 transition flex flex-col items-center gap-1">
+                  <i class="fa-solid fa-bars text-xs"></i>
+                  <span class="text-[10px]">Recents</span>
+                </button>
+                <button id="btnNavNotif" type="button" title="Expand Notifications" class="py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-400 hover:text-white active:bg-zinc-800 transition flex flex-col items-center gap-1">
+                  <i class="fa-solid fa-bell text-xs"></i>
+                  <span class="text-[10px]">Notif</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Section: Media & Volume Controls -->
+            <div class="remote-section space-y-1.5" data-section="media">
+              <div class="remote-sec-bar hidden items-center justify-between px-1 text-[10px] text-zinc-500 font-medium">
+                <span class="sec-label">Media & Volume</span>
+                <div class="flex items-center gap-1">
+                  <button type="button" class="btn-sec-up w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Move Up"><i class="fa-solid fa-chevron-up text-[9px]"></i></button>
+                  <button type="button" class="btn-sec-down w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Move Down"><i class="fa-solid fa-chevron-down text-[9px]"></i></button>
+                  <button type="button" class="btn-sec-toggle w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Hide/Show"><i class="fa-solid fa-eye text-[9px]"></i></button>
+                </div>
+              </div>
+              <div class="remote-sec-content grid grid-cols-6 gap-1 p-1 rounded-2xl bg-zinc-950 border border-zinc-800">
+                <button id="btnMediaPrev" type="button" title="Previous Track" class="py-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-900 transition flex items-center justify-center">
+                  <i class="fa-solid fa-backward-step text-xs"></i>
+                </button>
+                <button id="btnMediaPlay" type="button" title="Play / Pause" class="py-2 rounded-xl text-white bg-zinc-900/90 hover:bg-zinc-800 transition flex items-center justify-center">
+                  <i class="fa-solid fa-play text-xs"></i>
+                </button>
+                <button id="btnMediaNext" type="button" title="Next Track" class="py-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-900 transition flex items-center justify-center">
+                  <i class="fa-solid fa-forward-step text-xs"></i>
+                </button>
+                <button id="btnMediaVolDown" type="button" title="Volume Down" class="py-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-900 transition flex items-center justify-center">
+                  <i class="fa-solid fa-volume-low text-xs"></i>
+                </button>
+                <button id="btnMediaVolUp" type="button" title="Volume Up" class="py-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-900 transition flex items-center justify-center">
+                  <i class="fa-solid fa-volume-high text-xs"></i>
+                </button>
+                <button id="btnMediaMute" type="button" title="Mute Volume" class="py-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-900 transition flex items-center justify-center">
+                  <i class="fa-solid fa-volume-xmark text-xs"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Section: Quick Utilities -->
+            <div class="remote-section space-y-1.5" data-section="utils">
+              <div class="remote-sec-bar hidden items-center justify-between px-1 text-[10px] text-zinc-500 font-medium">
+                <span class="sec-label">Utilities</span>
+                <div class="flex items-center gap-1">
+                  <button type="button" class="btn-sec-up w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Move Up"><i class="fa-solid fa-chevron-up text-[9px]"></i></button>
+                  <button type="button" class="btn-sec-down w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Move Down"><i class="fa-solid fa-chevron-down text-[9px]"></i></button>
+                  <button type="button" class="btn-sec-toggle w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Hide/Show"><i class="fa-solid fa-eye text-[9px]"></i></button>
+                </div>
+              </div>
+              <div class="remote-sec-content grid grid-cols-2 gap-1.5 pt-0.5">
+                <button id="btnRemoteScreenshot" type="button" title="Capture Screenshot to Clipboard" class="py-2 px-3 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center gap-1.5">
+                  <i class="fa-solid fa-camera text-xs text-zinc-400"></i>
+                  <span>Screenshot</span>
+                </button>
+                <button id="btnRemoteRotate" type="button" title="Rotate Phone Screen" class="py-2 px-3 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center gap-1.5">
+                  <i class="fa-solid fa-rotate text-xs text-zinc-400"></i>
+                  <span>Rotate Screen</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Section: Quick Text Injector -->
+            <div class="remote-section space-y-1.5" data-section="text">
+              <div class="remote-sec-bar hidden items-center justify-between px-1 text-[10px] text-zinc-500 font-medium">
+                <span class="sec-label">Text Injector</span>
+                <div class="flex items-center gap-1">
+                  <button type="button" class="btn-sec-up w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Move Up"><i class="fa-solid fa-chevron-up text-[9px]"></i></button>
+                  <button type="button" class="btn-sec-down w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Move Down"><i class="fa-solid fa-chevron-down text-[9px]"></i></button>
+                  <button type="button" class="btn-sec-toggle w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Hide/Show"><i class="fa-solid fa-eye text-[9px]"></i></button>
+                </div>
+              </div>
+              <div class="remote-sec-content">
+                <form id="remoteTextForm" class="flex items-center gap-2">
+                  <input type="text" id="remoteTextInput" placeholder="Type text to send to phone..." class="flex-1 h-9 px-3.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition">
+                  <button type="submit" class="h-9 px-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition flex items-center gap-1.5 shadow-md shadow-blue-900/30">
+                    <i class="fa-solid fa-paper-plane text-[10px]"></i> Send
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <!-- Section: Circular D-Pad Navigator -->
+            <div class="remote-section space-y-1.5" data-section="dpad">
+              <div class="remote-sec-bar hidden items-center justify-between px-1 text-[10px] text-zinc-500 font-medium">
+                <span class="sec-label">Circular D-Pad</span>
+                <div class="flex items-center gap-1">
+                  <button type="button" class="btn-sec-up w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Move Up"><i class="fa-solid fa-chevron-up text-[9px]"></i></button>
+                  <button type="button" class="btn-sec-down w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Move Down"><i class="fa-solid fa-chevron-down text-[9px]"></i></button>
+                  <button type="button" class="btn-sec-toggle w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Hide/Show"><i class="fa-solid fa-eye text-[9px]"></i></button>
+                </div>
+              </div>
+              <div class="remote-sec-content flex justify-center pt-2 pb-1">
+                <div class="remote-dpad-circle relative w-44 h-44 rounded-full bg-zinc-950 border border-zinc-800 shadow-inner flex items-center justify-center p-2 transition-all">
+                  <!-- Up -->
+                  <button id="btnDpadUp" type="button" title="Up" class="remote-dpad-tb absolute top-1.5 inset-x-14 h-10 rounded-t-full bg-zinc-900/80 hover:bg-zinc-800 active:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition">
+                    <i class="fa-solid fa-chevron-up text-xs"></i>
+                  </button>
+                  <!-- Down -->
+                  <button id="btnDpadDown" type="button" title="Down" class="remote-dpad-tb absolute bottom-1.5 inset-x-14 h-10 rounded-b-full bg-zinc-900/80 hover:bg-zinc-800 active:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition">
+                    <i class="fa-solid fa-chevron-down text-xs"></i>
+                  </button>
+                  <!-- Left -->
+                  <button id="btnDpadLeft" type="button" title="Left" class="remote-dpad-lr absolute left-1.5 inset-y-14 w-10 rounded-l-full bg-zinc-900/80 hover:bg-zinc-800 active:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition">
+                    <i class="fa-solid fa-chevron-left text-xs"></i>
+                  </button>
+                  <!-- Right -->
+                  <button id="btnDpadRight" type="button" title="Right" class="remote-dpad-lr absolute right-1.5 inset-y-14 w-10 rounded-r-full bg-zinc-900/80 hover:bg-zinc-800 active:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition">
+                    <i class="fa-solid fa-chevron-right text-xs"></i>
+                  </button>
+                  <!-- Center OK -->
+                  <button id="btnDpadOk" type="button" title="Select / OK" class="remote-dpad-ok w-16 h-16 rounded-full bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 text-white font-semibold text-xs transition shadow-md flex items-center justify-center z-10">
+                    OK
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= LAYOUT 2: APPLE TV CLASSIC TOUCHPAD REMOTE ================= -->
+        <div id="layoutView2" class="hidden flex justify-center py-2">
+          <div class="w-[230px] rounded-[36px] bg-gradient-to-b from-[#18181b] via-[#121215] to-[#09090b] border border-zinc-800/90 p-4 shadow-2xl flex flex-col items-center gap-3.5 select-none">
+            <!-- Apple TV Touch Surface (Swipe & Tap) -->
+            <div id="l2TouchSurface" class="w-full h-36 rounded-2xl bg-zinc-950/90 border border-zinc-800/80 shadow-inner flex flex-col items-center justify-between p-2.5 cursor-pointer active:bg-zinc-900 transition relative">
+              <i class="fa-solid fa-chevron-up text-[10px] text-zinc-600"></i>
+              <div class="flex items-center justify-between w-full px-1">
+                <i class="fa-solid fa-chevron-left text-[10px] text-zinc-600"></i>
+                <div class="flex flex-col items-center">
+                  <span class="text-[9px] font-semibold tracking-wider text-zinc-400">TOUCHPAD</span>
+                  <span class="text-[8px] text-zinc-600">SWIPE · TAP OK</span>
+                </div>
+                <i class="fa-solid fa-chevron-right text-[10px] text-zinc-600"></i>
+              </div>
+              <i class="fa-solid fa-chevron-down text-[10px] text-zinc-600"></i>
+            </div>
+
+            <!-- Apple TV Buttons -->
+            <div class="w-full space-y-2.5 pt-1">
+              <!-- Row 1: MENU (Back) & TV (Home) -->
+              <div class="grid grid-cols-2 gap-2.5">
+                <button id="btnL2Back" type="button" title="Back / Menu" class="h-11 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 active:scale-95 text-zinc-200 border border-zinc-800 text-[11px] font-semibold transition flex items-center justify-center shadow-md">
+                  MENU
+                </button>
+                <button id="btnL2Home" type="button" title="TV / Home" class="h-11 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 active:scale-95 text-zinc-200 border border-zinc-800 transition flex items-center justify-center shadow-md">
+                  <i class="fa-solid fa-tv text-xs"></i>
+                </button>
+              </div>
+
+              <!-- Row 2: Play/Pause & Mute -->
+              <div class="grid grid-cols-2 gap-2.5">
+                <button id="btnL2Play" type="button" title="Play / Pause" class="h-11 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 active:scale-95 text-zinc-200 border border-zinc-800 transition flex items-center justify-center shadow-md">
+                  <i class="fa-solid fa-play text-xs"></i>
+                </button>
+                <button id="btnL2Mute" type="button" title="Mute Volume" class="h-11 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 active:scale-95 text-zinc-200 border border-zinc-800 transition flex items-center justify-center shadow-md">
+                  <i class="fa-solid fa-volume-xmark text-xs"></i>
+                </button>
+              </div>
+
+              <!-- Row 3: Volume Down & Volume Up -->
+              <div class="grid grid-cols-2 gap-2.5">
+                <button id="btnL2VolDown" type="button" title="Volume Down" class="h-11 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 active:scale-95 text-zinc-200 border border-zinc-800 transition flex items-center justify-center shadow-md">
+                  <i class="fa-solid fa-minus text-xs"></i>
+                </button>
+                <button id="btnL2VolUp" type="button" title="Volume Up" class="h-11 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 active:scale-95 text-zinc-200 border border-zinc-800 transition flex items-center justify-center shadow-md">
+                  <i class="fa-solid fa-plus text-xs"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Apple TV Lower Chin -->
+            <div class="h-6 w-full flex items-center justify-center">
+              <span class="w-8 h-1 rounded-full bg-zinc-800/80"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= LAYOUT 3: APPLE SIRI REMOTE (PICTURED SILVER ALUMINUM) ================= -->
+        <div id="layoutView3" class="hidden flex justify-center py-2">
+          <!-- Silver Aluminum Remote Body -->
+          <div class="w-[224px] rounded-[38px] p-4 shadow-2xl flex flex-col items-center gap-3 select-none transition-all" style="background: linear-gradient(180deg, #f4f4f5 0%, #e4e4e7 30%, #d4d4d8 70%, #b8bcc4 100%); border: 1px solid rgba(255, 255, 255, 0.7); box-shadow: inset 0 1px 1px rgba(255,255,255,0.9), 0 20px 30px -10px rgba(0,0,0,0.6);">
+            <!-- Top Section: Mic Hole and Power Button -->
+            <div class="w-full flex items-center justify-between px-1.5 pt-0.5">
+              <div class="w-7"></div>
+              <!-- Mic hole -->
+              <div class="w-2.5 h-1 rounded-full bg-zinc-700/80"></div>
+              <!-- Power Button -->
+              <button id="btnL3Power" type="button" title="Power / Lock Phone" class="w-7 h-7 rounded-full bg-zinc-200/90 hover:bg-zinc-100 active:scale-95 border border-zinc-400/70 shadow-sm text-zinc-800 flex items-center justify-center transition">
+                <i class="fa-solid fa-power-off text-[10px]"></i>
+              </button>
+            </div>
+
+            <!-- Circular Clickpad -->
+            <div class="relative w-36 h-36 rounded-full bg-[#18181b] shadow-[inset_0_2px_4px_rgba(0,0,0,0.7),0_3px_6px_rgba(0,0,0,0.35)] flex items-center justify-center p-1.5 mt-1">
+              <!-- Up Button with white dot -->
+              <button id="btnL3DpadUp" type="button" title="Up" class="absolute top-1 inset-x-10 h-9 rounded-t-full hover:bg-zinc-800 active:bg-zinc-700 flex items-center justify-center transition">
+                <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
+              </button>
+              <!-- Down Button with white dot -->
+              <button id="btnL3DpadDown" type="button" title="Down" class="absolute bottom-1 inset-x-10 h-9 rounded-b-full hover:bg-zinc-800 active:bg-zinc-700 flex items-center justify-center transition">
+                <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
+              </button>
+              <!-- Left Button with white dot -->
+              <button id="btnL3DpadLeft" type="button" title="Left" class="absolute left-1 inset-y-10 w-9 rounded-l-full hover:bg-zinc-800 active:bg-zinc-700 flex items-center justify-center transition">
+                <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
+              </button>
+              <!-- Right Button with white dot -->
+              <button id="btnL3DpadRight" type="button" title="Right" class="absolute right-1 inset-y-10 w-9 rounded-r-full hover:bg-zinc-800 active:bg-zinc-700 flex items-center justify-center transition">
+                <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
+              </button>
+              <!-- Center OK Button -->
+              <button id="btnL3DpadOk" type="button" title="Select / OK" class="w-16 h-16 rounded-full bg-[#27272a] hover:bg-[#3f3f46] active:bg-[#18181b] shadow-[inset_0_1px_2px_rgba(255,255,255,0.1),0_2px_4px_rgba(0,0,0,0.4)] z-10 transition flex items-center justify-center cursor-pointer">
+              </button>
+            </div>
+
+            <!-- Lower Buttons: Left Column (Back, Play/Pause, Mute) & Right Column (TV/Home, Volume Rocker) -->
+            <div class="w-full flex items-start justify-center gap-3.5 pt-2">
+              <!-- Left Column: 3 round buttons -->
+              <div class="flex flex-col gap-2.5">
+                <!-- Back Button -->
+                <button id="btnL3Back" type="button" title="Back" class="w-11 h-11 rounded-full bg-[#18181b] hover:bg-[#27272a] active:scale-95 text-zinc-100 flex items-center justify-center transition shadow-md border border-black/30">
+                  <i class="fa-solid fa-chevron-left text-xs"></i>
+                </button>
+                <!-- Play/Pause Button -->
+                <button id="btnL3Play" type="button" title="Play / Pause" class="w-11 h-11 rounded-full bg-[#18181b] hover:bg-[#27272a] active:scale-95 text-zinc-100 flex items-center justify-center transition shadow-md border border-black/30">
+                  <span class="flex items-center text-[9px]"><i class="fa-solid fa-play mr-0.5"></i><i class="fa-solid fa-pause"></i></span>
+                </button>
+                <!-- Mute Button -->
+                <button id="btnL3Mute" type="button" title="Mute Volume" class="w-11 h-11 rounded-full bg-[#18181b] hover:bg-[#27272a] active:scale-95 text-zinc-100 flex items-center justify-center transition shadow-md border border-black/30">
+                  <i class="fa-solid fa-volume-xmark text-xs"></i>
+                </button>
+              </div>
+
+              <!-- Right Column: TV button + Tall Volume Rocker -->
+              <div class="flex flex-col gap-2.5">
+                <!-- TV / Home Button -->
+                <button id="btnL3Home" type="button" title="TV / Home" class="w-11 h-11 rounded-full bg-[#18181b] hover:bg-[#27272a] active:scale-95 text-zinc-100 flex items-center justify-center transition shadow-md border border-black/30">
+                  <i class="fa-solid fa-tv text-xs"></i>
+                </button>
+                <!-- Tall Volume Rocker -->
+                <div class="w-11 h-[98px] rounded-full bg-[#18181b] shadow-md border border-black/30 flex flex-col justify-between overflow-hidden p-0.5">
+                  <button id="btnL3VolUp" type="button" title="Volume Up" class="w-full h-11 rounded-t-full hover:bg-[#27272a] active:bg-[#3f3f46] text-zinc-100 flex items-center justify-center transition">
+                    <i class="fa-solid fa-plus text-xs"></i>
+                  </button>
+                  <button id="btnL3VolDown" type="button" title="Volume Down" class="w-full h-11 rounded-b-full hover:bg-[#27272a] active:bg-[#3f3f46] text-zinc-100 flex items-center justify-center transition">
+                    <i class="fa-solid fa-minus text-xs"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Lower Aluminum Chin -->
+            <div class="h-20 w-full"></div>
+          </div>
+        </div>
+      </div>
+    </div>
   </main>
 
   <div id="screenTools" class="hidden fixed left-4 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2">
+    <button id="btnToolRemote" type="button" title="Toggle Remote Control Mode" class="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-900/90 text-zinc-300 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
+      <i class="fa-solid fa-gamepad text-sm"></i>
+    </button>
     <button id="btnFit" type="button" title="Fit to screen" class="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-900/90 text-zinc-300 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
       <i class="fa-solid fa-up-right-and-down-left-from-center text-sm"></i>
     </button>
@@ -245,9 +694,10 @@
       <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800 space-y-1.5">
         <div class="flex items-center justify-between">
           <span class="text-xs font-semibold text-emerald-400">v1.3.0</span>
-          <span class="text-[10px] text-zinc-500">04-11-2026</span>
+          <span class="text-[10px] text-zinc-500">05-11-2026</span>
         </div>
         <ul class="text-[11px] text-zinc-300 space-y-1 list-disc list-inside">
+          <li><span class="font-medium text-zinc-200">Remote Control Mode:</span> Dedicated TV & Android wireless remote control section over Wi-Fi/USB with virtual gesture touchpad, circular D-pad, Android system keys (Home, Back, Recents, Notifications), media controls, screen-off battery saver, and direct text injector with 0% video bandwidth.</li>
           <li><span class="font-medium text-zinc-200">Drag & Drop File Push:</span> Drag and drop files from PC/Mac onto either the main screen or Picture-in-Picture window (including when minimized) to transfer directly to phone's /sdcard/Download/ (no auto-install).</li>
           <li><span class="font-medium text-zinc-200">1-Click Screenshot:</span> Capture phone screen directly to computer & phone clipboard without saving files to disk.</li>
           <li><span class="font-medium text-zinc-200">Quick Performance Profiles:</span> 1-click presets in Settings for Gaming (720p · 4M), Balanced (1080p · 8M), and Quality (1080p · 16M).</li>
@@ -422,6 +872,7 @@
       AdbScrcpyOptionsLatest,
       DefaultServerPath,
       AndroidMotionEventAction,
+      AndroidMotionEventButton,
       AndroidKeyEventAction,
       AndroidScreenPowerMode,
       ScrcpyPointerId,
@@ -455,6 +906,7 @@
       fps: 60,
       lastFrames: 0,
       displayMode: 'mirror',
+      viewMode: 'mirror',
       hasDex: false,
       oneUi: 0,
     };
@@ -631,6 +1083,7 @@
     });
     function layoutCanvas() {
       const canvas = videoCanvas;
+      const isFs = document.fullscreenElement != null;
       const restore = () => {
         canvas.style.position = '';
         canvas.style.left = '';
@@ -638,10 +1091,11 @@
         canvas.style.transform = '';
         canvas.style.zIndex = '';
         canvas.style.width = 'auto';
-        canvas.style.height = 'auto';
+        canvas.style.height = isFs ? '100vh' : 'auto';
         canvas.style.maxWidth = '100%';
-        canvas.style.maxHeight = 'calc(100vh - 6.5rem)';
-        canvas.style.borderRadius = state.displayMode === 'dex' ? '12px' : '22px';
+        canvas.style.maxHeight = isFs ? '100vh' : 'calc(100vh - 6.5rem)';
+        canvas.style.borderRadius = isFs ? '0' : (state.displayMode === 'dex' ? '12px' : '22px');
+        canvas.style.boxShadow = isFs ? 'none' : '';
       };
       if (!fitScreen || !canvas.width || canvas.classList.contains('hidden')) {
         if (!fitScreen) restore();
@@ -666,6 +1120,7 @@
       canvas.style.width = `${Math.ceil(width)}px`;
       canvas.style.height = `${Math.ceil(height)}px`;
       canvas.style.borderRadius = '0';
+      canvas.style.boxShadow = 'none';
     }
 
     function renderFitButton() {
@@ -689,6 +1144,14 @@
     });
     document.getElementById('btnZoomIn')?.addEventListener('click', () => performPinchZoom(true));
     document.getElementById('btnZoomOut')?.addEventListener('click', () => performPinchZoom(false));
+
+    videoCanvas?.addEventListener('dblclick', () => {
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      } else {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+    });
 
     async function takeScreenshot() {
       const canvas = videoCanvas;
@@ -789,6 +1252,7 @@
       }
       btnWebUsbConnect.disabled = state.connecting;
       renderWifiStatus();
+      updateRemoteStatus();
     }
 
     function loadWifiPhones() {
@@ -1420,6 +1884,13 @@
         state.connecting = false;
         updateConnectionStatus();
 
+        // Turn off persistent touch/pointer indicator on the physical phone
+        adb.subprocess.noneProtocol.spawnWait(['settings', 'put', 'system', 'show_touches', '0']).catch(() => {});
+        adb.subprocess.noneProtocol.spawnWait(['settings', 'put', 'system', 'pointer_location', '0']).catch(() => {});
+
+        idleView.classList.add('hidden');
+        idleView.style.display = 'none';
+
         state.hasDex = await detectDex(adb, manufacturer.trim());
         if (state.adb !== adb) return;
         renderDisplayMode();
@@ -1457,9 +1928,12 @@
       const chooser = document.getElementById('modeChooser');
       const hint = document.getElementById('modeChooserHint');
       chooser.classList.toggle('hidden', !show);
+      chooser.style.display = show ? 'flex' : 'none';
       if (!show) return;
       idleView.classList.add('hidden');
+      idleView.style.display = 'none';
       videoCanvas.classList.add('hidden');
+      videoCanvas.style.display = 'none';
       syncScreenTools();
       hint.textContent = state.oneUi > 0 && state.oneUi < 80000
         ? 'DeX in this window needs One UI 8. This phone may only show an empty desktop.'
@@ -1622,7 +2096,7 @@
       if (!mirrorRestarting && state.adb && state.hasDex) showModeChooser(true);
       else if (!mirrorRestarting) {
         showModeChooser(false);
-        idleView.classList.remove('hidden');
+        renderMainViews();
       }
       badgeRes.textContent = '--';
       badgeFps.textContent = '0 FPS';
@@ -1856,15 +2330,25 @@
         const controller = state.client?.controller;
         if (!controller || !surfaceSize(canvas).width) return;
         e.preventDefault();
+        const isMouse = e.pointerType === 'mouse';
+        const isHover = action === AndroidMotionEventAction.HoverMove || action === AndroidMotionEventAction.HoverEnter || action === AndroidMotionEventAction.HoverExit;
+        const btn = e.buttons === 2 ? AndroidMotionEventButton.Secondary : (e.buttons ? AndroidMotionEventButton.Primary : 0);
         controller.injectTouch({
           action,
-          pointerId: e.pointerType === 'mouse' ? ScrcpyPointerId.Finger : BigInt(e.pointerId),
+          pointerId: isMouse ? ScrcpyPointerId.Mouse : BigInt(e.pointerId),
           ...toDevicePoint(e, canvas),
-          pressure: action === AndroidMotionEventAction.Up ? 0 : 1,
-          actionButton: 0,
-          buttons: 0,
+          pressure: isHover || action === AndroidMotionEventAction.Up ? 0 : 1,
+          actionButton: isMouse ? btn : 0,
+          buttons: isMouse ? btn : 0,
         }).catch(() => {});
       };
+
+      canvas.addEventListener('pointerenter', (e) => {
+        if (e.pointerType === 'mouse') inject(e, AndroidMotionEventAction.HoverEnter);
+      });
+      canvas.addEventListener('pointerleave', (e) => {
+        if (e.pointerType === 'mouse') inject(e, AndroidMotionEventAction.HoverExit);
+      });
 
       canvas.addEventListener('pointerdown', (e) => {
         canvas.focus();
@@ -1939,7 +2423,11 @@
           return;
         }
 
-        if (activePointers.has(e.pointerId)) inject(e, AndroidMotionEventAction.Move);
+        if (activePointers.has(e.pointerId)) {
+          inject(e, AndroidMotionEventAction.Move);
+        } else if (e.pointerType === 'mouse') {
+          inject(e, AndroidMotionEventAction.HoverMove);
+        }
       });
 
       const release = (e) => {
@@ -2741,13 +3229,507 @@
 
     async function sendAdbKey(code) {
       const controller = state.client?.controller;
-      if (!controller) {
-        logTerm('No device connected.', 'warn');
+      if (controller) {
+        const base = { keyCode: code, repeat: 0, metaState: 0 };
+        await controller.injectKeyCode({ ...base, action: AndroidKeyEventAction.Down });
+        await controller.injectKeyCode({ ...base, action: AndroidKeyEventAction.Up });
         return;
       }
-      const base = { keyCode: code, repeat: 0, metaState: 0 };
-      await controller.injectKeyCode({ ...base, action: AndroidKeyEventAction.Down });
-      await controller.injectKeyCode({ ...base, action: AndroidKeyEventAction.Up });
+      if (state.adb) {
+        try {
+          await state.adb.subprocess.noneProtocol.spawnWait(['input', 'keyevent', String(code)]);
+          return;
+        } catch (e) {
+          logTerm(`Key event failed: ${e?.message ?? e}`, 'error');
+        }
+        return;
+      }
+      logTerm('No device connected.', 'warn');
+    }
+
+    async function expandNotifications() {
+      if (state.adb) {
+        try {
+          await state.adb.subprocess.noneProtocol.spawnWait(['cmd', 'statusbar', 'expand']);
+          logTerm('Notifications expanded.', 'system');
+        } catch (e) {
+          await sendAdbKey(83);
+        }
+      } else {
+        logTerm('No device connected.', 'warn');
+      }
+    }
+
+    async function injectTextToPhone(text) {
+      if (!text) return;
+      if (state.client?.controller) {
+        try {
+          await state.client.controller.setClipboard({
+            content: text,
+            paste: true,
+          });
+          logTerm(`Sent text: "${text}"`, 'success');
+          return;
+        } catch (e) {
+          console.warn('Clipboard paste failed, trying shell input text:', e);
+        }
+      }
+      if (state.adb) {
+        try {
+          const escaped = text.replace(/([\\"'`$\s&;()|<>{}[\]*?~!])/g, '\\$1');
+          await state.adb.subprocess.noneProtocol.spawnWaitText(['input', 'text', escaped || text]);
+          logTerm(`Sent text: "${text}"`, 'success');
+        } catch (e) {
+          logTerm(`Text send failed: ${e?.message ?? e}`, 'error');
+        }
+      } else {
+        logTerm('No device connected.', 'warn');
+      }
+    }
+
+    function renderMainViews() {
+      const isRemote = state.viewMode === 'remote';
+      const remoteView = document.getElementById('remoteView');
+      const videoCanvas = document.getElementById('videoCanvas');
+      const idleView = document.getElementById('idleView');
+      const modeChooser = document.getElementById('modeChooser');
+      const pipView = document.getElementById('pipView');
+      const screenTools = document.getElementById('screenTools');
+
+      if (isRemote) {
+        if (idleView) { idleView.classList.add('hidden'); idleView.style.display = 'none'; }
+        if (videoCanvas) { videoCanvas.classList.add('hidden'); videoCanvas.style.display = 'none'; }
+        if (modeChooser) { modeChooser.classList.add('hidden'); modeChooser.style.display = 'none'; }
+        if (pipView) { pipView.classList.add('hidden'); pipView.style.display = 'none'; }
+        if (screenTools) screenTools.classList.add('hidden');
+        if (remoteView) { remoteView.classList.remove('hidden'); remoteView.style.display = 'flex'; }
+      } else {
+        if (remoteView) { remoteView.classList.add('hidden'); remoteView.style.display = 'none'; }
+        if (pipWindow) {
+          if (pipView) { pipView.classList.remove('hidden'); pipView.style.display = 'flex'; }
+          if (videoCanvas) { videoCanvas.classList.add('hidden'); videoCanvas.style.display = 'none'; }
+          if (idleView) { idleView.classList.add('hidden'); idleView.style.display = 'none'; }
+          if (modeChooser) { modeChooser.classList.add('hidden'); modeChooser.style.display = 'none'; }
+          if (screenTools) screenTools.classList.add('hidden');
+        } else if (state.client && videoCanvas && videoCanvas.width) {
+          if (videoCanvas) { videoCanvas.classList.remove('hidden'); videoCanvas.style.display = 'block'; }
+          if (idleView) { idleView.classList.add('hidden'); idleView.style.display = 'none'; }
+          if (modeChooser) { modeChooser.classList.add('hidden'); modeChooser.style.display = 'none'; }
+          if (pipView) { pipView.classList.add('hidden'); pipView.style.display = 'none'; }
+          if (screenTools) screenTools.classList.remove('hidden');
+        } else if (state.hasDex && !state.client) {
+          showModeChooser(true);
+        } else {
+          if (idleView) { idleView.classList.remove('hidden'); idleView.style.display = 'flex'; }
+          if (videoCanvas) { videoCanvas.classList.add('hidden'); videoCanvas.style.display = 'none'; }
+          if (modeChooser) { modeChooser.classList.add('hidden'); modeChooser.style.display = 'none'; }
+          if (pipView) { pipView.classList.add('hidden'); pipView.style.display = 'none'; }
+          if (screenTools) screenTools.classList.add('hidden');
+        }
+      }
+    }
+
+    function setViewMode(mode) {
+      state.viewMode = mode;
+      const isRemote = mode === 'remote';
+      const btnMirror = document.getElementById('btnModeMirror');
+      const btnRemote = document.getElementById('btnModeRemote');
+      const btnToolRemote = document.getElementById('btnToolRemote');
+
+      if (btnMirror) {
+        btnMirror.className = isRemote
+          ? 'px-2.5 py-1 rounded-full text-zinc-400 hover:text-white transition flex items-center gap-1.5'
+          : 'px-2.5 py-1 rounded-full bg-zinc-800 text-white font-medium transition flex items-center gap-1.5';
+      }
+      if (btnRemote) {
+        btnRemote.className = isRemote
+          ? 'px-2.5 py-1 rounded-full bg-blue-600 text-white font-medium transition flex items-center gap-1.5 shadow-sm shadow-blue-900/30'
+          : 'px-2.5 py-1 rounded-full text-zinc-400 hover:text-white transition flex items-center gap-1.5';
+      }
+      if (btnToolRemote) {
+        btnToolRemote.classList.toggle('bg-blue-600', isRemote);
+        btnToolRemote.classList.toggle('text-white', isRemote);
+        btnToolRemote.classList.toggle('bg-zinc-900/90', !isRemote);
+        btnToolRemote.classList.toggle('text-zinc-300', !isRemote);
+      }
+
+      renderMainViews();
+      updateRemoteStatus();
+      logTerm(isRemote
+        ? 'Switched to Remote Control Mode (Wi-Fi / USB, 0% video overhead).'
+        : 'Switched to Mirroring Mode.', 'system');
+    }
+
+    function updateRemoteStatus() {
+      const dot = document.getElementById('remoteStatusDot');
+      const txt = document.getElementById('remoteStatusText');
+      if (dot && txt) {
+        if (state.adb) {
+          const linkType = state.link === 'wifi' ? 'Wi-Fi' : 'USB';
+          const name = state.wifiSerial || state.usbDevice?.name || txtDeviceName?.textContent || 'Connected Phone';
+          dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0';
+          txt.textContent = `${linkType} Remote Active · ${name}`;
+        } else {
+          dot.className = 'w-2.5 h-2.5 rounded-full bg-zinc-600 shrink-0';
+          txt.textContent = 'No Device Connected (Connect via Wi-Fi or USB)';
+        }
+      }
+
+      const scrOffIcon = document.getElementById('remoteScreenOffIcon');
+      const scrOffText = document.getElementById('remoteScreenOffText');
+      const off = chkTurnOffScreen?.checked;
+      if (scrOffIcon) scrOffIcon.textContent = off ? '◐' : '●';
+      if (scrOffText) scrOffText.textContent = off ? 'Screen On' : 'Screen Off';
+    }
+
+    const DEFAULT_REMOTE_LAYOUT = {
+      scale: 'normal',
+      sections: [
+        { id: 'nav', name: 'System Navigation', visible: true },
+        { id: 'media', name: 'Media & Volume', visible: true },
+        { id: 'utils', name: 'Quick Utilities', visible: true },
+        { id: 'text', name: 'Text Injector', visible: true },
+        { id: 'dpad', name: 'Circular D-Pad', visible: true }
+      ]
+    };
+
+    let remoteLayout = loadRemoteLayout();
+    let isCustomizingRemote = false;
+
+    function loadRemoteLayout() {
+      try {
+        const raw = localStorage.getItem('webscrcpy_remote_layout_v2');
+        if (!raw) return JSON.parse(JSON.stringify(DEFAULT_REMOTE_LAYOUT));
+        const parsed = JSON.parse(raw);
+        if (!parsed || !Array.isArray(parsed.sections)) {
+          return JSON.parse(JSON.stringify(DEFAULT_REMOTE_LAYOUT));
+        }
+        const validIds = new Set(DEFAULT_REMOTE_LAYOUT.sections.map(s => s.id));
+        const mergedSections = parsed.sections.filter(s => validIds.has(s.id));
+        for (const def of DEFAULT_REMOTE_LAYOUT.sections) {
+          if (!mergedSections.some(s => s.id === def.id)) {
+            mergedSections.push({ ...def });
+          }
+        }
+        return {
+          scale: ['compact', 'normal', 'large'].includes(parsed.scale) ? parsed.scale : 'normal',
+          sections: mergedSections
+        };
+      } catch {
+        return JSON.parse(JSON.stringify(DEFAULT_REMOTE_LAYOUT));
+      }
+    }
+
+    function saveRemoteLayout() {
+      try {
+        localStorage.setItem('webscrcpy_remote_layout_v2', JSON.stringify(remoteLayout));
+      } catch (err) {
+        console.warn('Failed to save remote layout:', err);
+      }
+    }
+
+    function applyRemoteLayout() {
+      const remoteViewEl = document.getElementById('remoteView');
+      const container = document.getElementById('remoteSectionsContainer');
+      if (!remoteViewEl || !container) return;
+
+      // 1. Scale
+      remoteViewEl.classList.remove('remote-scale-compact', 'remote-scale-normal', 'remote-scale-large');
+      remoteViewEl.classList.add(`remote-scale-${remoteLayout.scale || 'normal'}`);
+
+      const btnCompact = document.getElementById('btnScaleCompact');
+      const btnNormal = document.getElementById('btnScaleNormal');
+      const btnLarge = document.getElementById('btnScaleLarge');
+      const activeBtnCls = 'px-2 py-0.5 rounded bg-zinc-800 text-white font-medium transition';
+      const inactiveBtnCls = 'px-2 py-0.5 rounded text-zinc-400 hover:text-white transition';
+      if (btnCompact) btnCompact.className = remoteLayout.scale === 'compact' ? activeBtnCls : inactiveBtnCls;
+      if (btnNormal) btnNormal.className = remoteLayout.scale === 'normal' ? activeBtnCls : inactiveBtnCls;
+      if (btnLarge) btnLarge.className = remoteLayout.scale === 'large' ? activeBtnCls : inactiveBtnCls;
+
+      // 2. Section order & visibility
+      const total = remoteLayout.sections.length;
+      remoteLayout.sections.forEach((sec, idx) => {
+        const secEl = container.querySelector(`[data-section="${sec.id}"]`);
+        if (!secEl) return;
+
+        container.appendChild(secEl);
+
+        secEl.classList.toggle('is-hidden', !sec.visible);
+
+        const labelEl = secEl.querySelector('.sec-label');
+        if (labelEl) {
+          labelEl.textContent = sec.name + (sec.visible ? '' : ' (Hidden)');
+        }
+
+        const btnUp = secEl.querySelector('.btn-sec-up');
+        const btnDown = secEl.querySelector('.btn-sec-down');
+        const btnToggle = secEl.querySelector('.btn-sec-toggle');
+
+        if (btnUp) {
+          btnUp.disabled = idx === 0;
+          btnUp.classList.toggle('opacity-30', idx === 0);
+          btnUp.classList.toggle('cursor-not-allowed', idx === 0);
+        }
+        if (btnDown) {
+          btnDown.disabled = idx === total - 1;
+          btnDown.classList.toggle('opacity-30', idx === total - 1);
+          btnDown.classList.toggle('cursor-not-allowed', idx === total - 1);
+        }
+        if (btnToggle) {
+          btnToggle.innerHTML = sec.visible
+            ? '<i class="fa-solid fa-eye text-[9px] text-zinc-300"></i>'
+            : '<i class="fa-solid fa-eye-slash text-[9px] text-red-400"></i>';
+          btnToggle.title = sec.visible ? 'Hide Section' : 'Show Section';
+        }
+      });
+    }
+
+    function toggleCustomizeRemote(force) {
+      isCustomizingRemote = typeof force === 'boolean' ? force : !isCustomizingRemote;
+      const remoteViewEl = document.getElementById('remoteView');
+      const bar = document.getElementById('remoteCustomizeBar');
+      const btn = document.getElementById('btnRemoteCustomize');
+      const txt = document.getElementById('remoteCustomizeText');
+
+      if (remoteViewEl) {
+        remoteViewEl.classList.toggle('remote-customizing', isCustomizingRemote);
+      }
+      if (bar) {
+        bar.classList.toggle('hidden', !isCustomizingRemote);
+      }
+      if (btn) {
+        if (isCustomizingRemote) {
+          btn.className = 'h-7 px-2.5 rounded-full border border-blue-500 bg-blue-600 text-white text-[11px] font-medium transition flex items-center gap-1 shadow-sm shadow-blue-900/30';
+          if (txt) txt.textContent = 'Done';
+        } else {
+          btn.className = 'h-7 px-2.5 rounded-full border border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-white text-[11px] font-medium transition flex items-center gap-1';
+          if (txt) txt.textContent = 'Customize';
+        }
+      }
+
+      const secBars = document.querySelectorAll('.remote-sec-bar');
+      secBars.forEach(sb => {
+        sb.classList.toggle('hidden', !isCustomizingRemote);
+        sb.classList.toggle('flex', isCustomizingRemote);
+      });
+
+      applyRemoteLayout();
+    }
+
+    function moveRemoteSection(id, dir) {
+      const idx = remoteLayout.sections.findIndex(s => s.id === id);
+      if (idx === -1) return;
+      const targetIdx = idx + dir;
+      if (targetIdx < 0 || targetIdx >= remoteLayout.sections.length) return;
+      const temp = remoteLayout.sections[idx];
+      remoteLayout.sections[idx] = remoteLayout.sections[targetIdx];
+      remoteLayout.sections[targetIdx] = temp;
+      saveRemoteLayout();
+      applyRemoteLayout();
+    }
+
+    function toggleRemoteSectionVisibility(id) {
+      const sec = remoteLayout.sections.find(s => s.id === id);
+      if (!sec) return;
+      sec.visible = !sec.visible;
+      saveRemoteLayout();
+      applyRemoteLayout();
+    }
+
+    function setRemoteScale(scale) {
+      if (!['compact', 'normal', 'large'].includes(scale)) return;
+      remoteLayout.scale = scale;
+      saveRemoteLayout();
+      applyRemoteLayout();
+    }
+
+    function resetRemoteLayout() {
+      remoteLayout = JSON.parse(JSON.stringify(DEFAULT_REMOTE_LAYOUT));
+      saveRemoteLayout();
+      applyRemoteLayout();
+      logTerm('Remote layout reset to default.', 'system');
+    }
+
+    let currentRemoteDesign = 'layout1';
+    try {
+      currentRemoteDesign = localStorage.getItem('webscrcpy_remote_active_layout') || 'layout1';
+    } catch {}
+
+    function setRemoteDesign(design) {
+      if (!['layout1', 'layout2', 'layout3'].includes(design)) design = 'layout1';
+      currentRemoteDesign = design;
+      try {
+        localStorage.setItem('webscrcpy_remote_active_layout', design);
+      } catch {}
+
+      const v1 = document.getElementById('layoutView1');
+      const v2 = document.getElementById('layoutView2');
+      const v3 = document.getElementById('layoutView3');
+
+      const t1 = document.getElementById('tabRemoteLayout1');
+      const t2 = document.getElementById('tabRemoteLayout2');
+      const t3 = document.getElementById('tabRemoteLayout3');
+
+      const activeTabCls = 'flex-1 py-1.5 px-2 rounded-xl text-center text-[11px] font-medium transition text-white bg-zinc-800 shadow-sm';
+      const inactiveTabCls = 'flex-1 py-1.5 px-2 rounded-xl text-center text-[11px] font-medium transition text-zinc-400 hover:text-white';
+
+      if (v1) v1.classList.toggle('hidden', design !== 'layout1');
+      if (v2) v2.classList.toggle('hidden', design !== 'layout2');
+      if (v3) v3.classList.toggle('hidden', design !== 'layout3');
+
+      if (t1) t1.className = design === 'layout1' ? activeTabCls : inactiveTabCls;
+      if (t2) t2.className = design === 'layout2' ? activeTabCls : inactiveTabCls;
+      if (t3) t3.className = design === 'layout3' ? activeTabCls : inactiveTabCls;
+
+      const btnCustomize = document.getElementById('btnRemoteCustomize');
+      if (btnCustomize) {
+        btnCustomize.classList.toggle('hidden', design !== 'layout1');
+      }
+    }
+
+    function initRemoteControls() {
+      document.getElementById('btnModeMirror')?.addEventListener('click', () => setViewMode('mirror'));
+      document.getElementById('btnModeRemote')?.addEventListener('click', () => setViewMode('remote'));
+      document.getElementById('btnToolRemote')?.addEventListener('click', () => {
+        setViewMode(state.viewMode === 'remote' ? 'mirror' : 'remote');
+      });
+
+      // Layout Switcher Tabs
+      document.getElementById('tabRemoteLayout1')?.addEventListener('click', () => setRemoteDesign('layout1'));
+      document.getElementById('tabRemoteLayout2')?.addEventListener('click', () => setRemoteDesign('layout2'));
+      document.getElementById('tabRemoteLayout3')?.addEventListener('click', () => setRemoteDesign('layout3'));
+
+      // Layout 1: Customize mode toggles & scale
+      document.getElementById('btnRemoteCustomize')?.addEventListener('click', () => toggleCustomizeRemote());
+      document.getElementById('btnScaleCompact')?.addEventListener('click', () => setRemoteScale('compact'));
+      document.getElementById('btnScaleNormal')?.addEventListener('click', () => setRemoteScale('normal'));
+      document.getElementById('btnScaleLarge')?.addEventListener('click', () => setRemoteScale('large'));
+      document.getElementById('btnResetRemoteLayout')?.addEventListener('click', resetRemoteLayout);
+
+      // Layout 1: Section up/down/toggle event delegation
+      const container = document.getElementById('remoteSectionsContainer');
+      container?.addEventListener('click', (e) => {
+        const btnUp = e.target.closest('.btn-sec-up');
+        const btnDown = e.target.closest('.btn-sec-down');
+        const btnToggle = e.target.closest('.btn-sec-toggle');
+        const secEl = e.target.closest('.remote-section');
+        const secId = secEl?.getAttribute('data-section');
+        if (!secId) return;
+
+        if (btnUp) {
+          e.preventDefault();
+          moveRemoteSection(secId, -1);
+        } else if (btnDown) {
+          e.preventDefault();
+          moveRemoteSection(secId, 1);
+        } else if (btnToggle) {
+          e.preventDefault();
+          toggleRemoteSectionVisibility(secId);
+        }
+      });
+
+      // Layout 1: D-Pad
+      document.getElementById('btnDpadUp')?.addEventListener('click', () => sendAdbKey(19));
+      document.getElementById('btnDpadDown')?.addEventListener('click', () => sendAdbKey(20));
+      document.getElementById('btnDpadLeft')?.addEventListener('click', () => sendAdbKey(21));
+      document.getElementById('btnDpadRight')?.addEventListener('click', () => sendAdbKey(22));
+      document.getElementById('btnDpadOk')?.addEventListener('click', () => sendAdbKey(23));
+
+      // Layout 1: Navigation
+      document.getElementById('btnNavBack')?.addEventListener('click', () => sendAdbKey(4));
+      document.getElementById('btnNavHome')?.addEventListener('click', () => sendAdbKey(3));
+      document.getElementById('btnNavRecents')?.addEventListener('click', () => sendAdbKey(187));
+      document.getElementById('btnNavNotif')?.addEventListener('click', () => expandNotifications());
+
+      // Layout 1: Media
+      document.getElementById('btnMediaPrev')?.addEventListener('click', () => sendAdbKey(88));
+      document.getElementById('btnMediaPlay')?.addEventListener('click', () => sendAdbKey(85));
+      document.getElementById('btnMediaNext')?.addEventListener('click', () => sendAdbKey(87));
+      document.getElementById('btnMediaVolDown')?.addEventListener('click', () => sendAdbKey(25));
+      document.getElementById('btnMediaVolUp')?.addEventListener('click', () => sendAdbKey(24));
+      document.getElementById('btnMediaMute')?.addEventListener('click', () => sendAdbKey(164));
+
+      // Power & Screen (Fixed in header)
+      document.getElementById('btnRemotePower')?.addEventListener('click', () => sendAdbKey(26));
+      document.getElementById('btnRemoteScreenOff')?.addEventListener('click', () => {
+        setPhoneScreenOff(!chkTurnOffScreen.checked).then(updateRemoteStatus).catch(() => {});
+      });
+
+      // Layout 1: Quick Utilities (Screenshot & Rotate)
+      document.getElementById('btnRemoteScreenshot')?.addEventListener('click', takeScreenshot);
+      document.getElementById('btnRemoteRotate')?.addEventListener('click', () => {
+        rotateScreen().catch((err) => {
+          logTerm(`Screen rotation failed: ${err?.message ?? err}`, 'error');
+        });
+      });
+
+      // Layout 1: Text Injector
+      const textForm = document.getElementById('remoteTextForm');
+      const textInput = document.getElementById('remoteTextInput');
+      textForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const val = textInput?.value?.trim();
+        if (!val) return;
+        await injectTextToPhone(val);
+        if (textInput) textInput.value = '';
+      });
+
+      // Layout 2: Apple TV Classic Buttons
+      document.getElementById('btnL2Back')?.addEventListener('click', () => sendAdbKey(4));
+      document.getElementById('btnL2Home')?.addEventListener('click', () => sendAdbKey(3));
+      document.getElementById('btnL2Play')?.addEventListener('click', () => sendAdbKey(85));
+      document.getElementById('btnL2Mute')?.addEventListener('click', () => sendAdbKey(164));
+      document.getElementById('btnL2VolDown')?.addEventListener('click', () => sendAdbKey(25));
+      document.getElementById('btnL2VolUp')?.addEventListener('click', () => sendAdbKey(24));
+
+      // Layout 2: Touchpad Gestures (Swipe / Tap)
+      const l2Pad = document.getElementById('l2TouchSurface');
+      if (l2Pad) {
+        let startX = 0, startY = 0, startTime = 0;
+        const onStart = (e) => {
+          const pt = e.touches ? e.touches[0] : e;
+          startX = pt.clientX;
+          startY = pt.clientY;
+          startTime = Date.now();
+        };
+        const onEnd = (e) => {
+          const pt = e.changedTouches ? e.changedTouches[0] : e;
+          const dx = pt.clientX - startX;
+          const dy = pt.clientY - startY;
+          const dt = Date.now() - startTime;
+          const absX = Math.abs(dx);
+          const absY = Math.abs(dy);
+          if (absX < 15 && absY < 15 && dt < 450) {
+            sendAdbKey(23); // Select / OK
+          } else if (absX > absY && absX > 20) {
+            sendAdbKey(dx > 0 ? 22 : 21); // Right / Left
+          } else if (absY > absX && absY > 20) {
+            sendAdbKey(dy > 0 ? 20 : 19); // Down / Up
+          }
+        };
+        l2Pad.addEventListener('mousedown', onStart);
+        l2Pad.addEventListener('mouseup', onEnd);
+        l2Pad.addEventListener('touchstart', onStart, { passive: true });
+        l2Pad.addEventListener('touchend', onEnd, { passive: true });
+      }
+
+      // Layout 3: Pictured Silver Siri Remote Buttons
+      document.getElementById('btnL3Power')?.addEventListener('click', () => sendAdbKey(26));
+      document.getElementById('btnL3DpadUp')?.addEventListener('click', () => sendAdbKey(19));
+      document.getElementById('btnL3DpadDown')?.addEventListener('click', () => sendAdbKey(20));
+      document.getElementById('btnL3DpadLeft')?.addEventListener('click', () => sendAdbKey(21));
+      document.getElementById('btnL3DpadRight')?.addEventListener('click', () => sendAdbKey(22));
+      document.getElementById('btnL3DpadOk')?.addEventListener('click', () => sendAdbKey(23));
+      document.getElementById('btnL3Back')?.addEventListener('click', () => sendAdbKey(4));
+      document.getElementById('btnL3Home')?.addEventListener('click', () => sendAdbKey(3));
+      document.getElementById('btnL3Play')?.addEventListener('click', () => sendAdbKey(85));
+      document.getElementById('btnL3Mute')?.addEventListener('click', () => sendAdbKey(164));
+      document.getElementById('btnL3VolUp')?.addEventListener('click', () => sendAdbKey(24));
+      document.getElementById('btnL3VolDown')?.addEventListener('click', () => sendAdbKey(25));
+
+      // Apply initial layout configuration & chosen design
+      applyRemoteLayout();
+      setRemoteDesign(currentRemoteDesign);
     }
 
     function markCustomProfile() {
@@ -2836,6 +3818,7 @@
     async function setPhoneScreenOff(off) {
       chkTurnOffScreen.checked = off;
       renderPipScreenBtn();
+      updateRemoteStatus();
       const controller = state.client?.controller;
       if (!controller) return;
       await controller.setScreenPowerMode(off ? AndroidScreenPowerMode.Off : AndroidScreenPowerMode.Normal);
@@ -2949,6 +3932,7 @@
     renderResolution();
     renderDisplayMode();
     updateConnectionStatus();
+    initRemoteControls();
     logTerm(navigator.usb ? 'WebUSB is available. Ready to connect.' : 'WebUSB is not supported in this browser.', navigator.usb ? 'success' : 'error');
  
     const btnToggleManualIp = document.getElementById('btnToggleManualIp');
