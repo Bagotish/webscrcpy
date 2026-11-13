@@ -5,8 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TV Remote">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#d4d4d8">
   <title>WebScrcpy TV Remote</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -155,9 +159,9 @@
         <i class="fa-solid fa-keyboard text-[10px]"></i>
       </button>
 
-      <!-- Theme Switcher (Silver vs Dark) -->
-      <button id="btnThemeToggle" type="button" title="Toggle Remote Theme" class="utility-pill w-7 h-7 rounded-full border flex items-center justify-center transition">
-        <i id="themeIcon" class="fa-solid fa-circle-half-stroke text-[10px]"></i>
+      <!-- Phone Screen / Brightness Off Toggle -->
+      <button id="btnScreenOffToggle" type="button" title="Turn Phone Screen / Brightness Off" class="utility-pill w-7 h-7 rounded-full border flex items-center justify-center transition">
+        <i id="screenOffIcon" class="fa-solid fa-sun text-[10px]"></i>
       </button>
 
       <!-- Haptics Toggle -->
@@ -167,14 +171,37 @@
     </div>
   </header>
 
-  <!-- COLLAPSIBLE TEXT INPUT DRAWER -->
-  <div id="keyboardDrawer" class="hidden w-full max-w-sm px-2 py-1 z-20 shrink-0 transition-all">
+  <!-- COLLAPSIBLE TEXT INPUT DRAWER (REAL-TIME KEYBOARD SYNC) -->
+  <div id="keyboardDrawer" class="hidden w-full max-w-sm px-2.5 py-2 z-20 shrink-0 transition-all bg-black/5 dark:bg-white/5 rounded-2xl border border-black/10 dark:border-white/10 mb-1">
+    <div class="flex items-center justify-between mb-1.5 px-0.5">
+      <div class="flex items-center gap-1.5">
+        <span class="text-[10px] font-medium opacity-70">Keyboard Sync</span>
+        <button id="btnLiveSyncToggle" type="button" class="text-[9px] font-mono px-1.5 py-0.5 rounded border transition bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">
+          Live: ON
+        </button>
+      </div>
+      <div class="flex items-center gap-1">
+        <button id="btnPasteClipboard" type="button" title="Paste from device clipboard" class="h-5 px-1.5 rounded text-[9px] bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 transition flex items-center gap-1">
+          <i class="fa-solid fa-paste text-[8px]"></i> Paste
+        </button>
+        <button id="btnClearInput" type="button" title="Clear input text" class="h-5 px-1.5 rounded text-[9px] bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 transition">
+          Clear
+        </button>
+      </div>
+    </div>
     <form id="textForm" class="flex items-center gap-1.5">
-      <input type="text" id="textInput" placeholder="Type text to send to phone..." class="flex-1 h-8 px-3 rounded-xl bg-black/10 dark:bg-white/10 border border-black/15 dark:border-white/15 text-xs focus:outline-none transition">
-      <button type="submit" class="h-8 px-3 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 text-xs font-medium transition flex items-center gap-1">
+      <input type="text" id="textInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Type here to sync live to phone..." class="flex-1 h-8 px-3 rounded-xl bg-black/10 dark:bg-white/10 border border-black/15 dark:border-white/15 text-xs focus:outline-none transition">
+      <button type="submit" class="h-8 px-3 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 text-xs font-medium transition flex items-center gap-1 shrink-0">
         <i class="fa-solid fa-paper-plane text-[9px]"></i> Send
       </button>
     </form>
+    <div class="flex items-center justify-between mt-1.5 px-0.5 text-[9px] opacity-60">
+      <span>Keystrokes streamed instantly</span>
+      <div class="flex items-center gap-1">
+        <button id="btnQuickEnter" type="button" class="px-2 py-0.5 rounded bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 transition">Return</button>
+        <button id="btnQuickBackspace" type="button" class="px-2 py-0.5 rounded bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 transition">Delete</button>
+      </div>
+    </div>
   </div>
 
   <!-- MAIN REMOTE LAYOUT (EXACT REPLICA OF PICTURE 2) -->
@@ -198,32 +225,32 @@
       </button>
     </div>
 
-    <!-- 2. CIRCULAR DIRECTIONAL CLICKPAD -->
-    <div class="relative w-56 h-56 rounded-full clickpad-outer flex items-center justify-center select-none shadow-xl my-2">
+    <!-- 2. CIRCULAR DIRECTIONAL CLICKPAD & TOUCH TRACKPAD -->
+    <div id="clickpadOuter" class="relative w-56 h-56 rounded-full clickpad-outer flex items-center justify-center select-none shadow-xl my-2 touch-none">
       <!-- Up Direction -->
-      <button data-key="19" title="Up" class="btn-press absolute top-0 inset-x-12 h-16 rounded-t-full flex items-start justify-center pt-2.5 text-zinc-400 hover:text-white transition">
-        <span class="w-2 h-2 rounded-full bg-zinc-400"></span>
+      <button id="padUp" data-key="19" title="Up" class="btn-press absolute top-0 inset-x-12 h-16 rounded-t-full flex items-start justify-center pt-2.5 text-zinc-400 hover:text-white transition">
+        <span class="w-2 h-2 rounded-full bg-zinc-400 pointer-events-none"></span>
       </button>
 
       <!-- Down Direction -->
-      <button data-key="20" title="Down" class="btn-press absolute bottom-0 inset-x-12 h-16 rounded-b-full flex items-end justify-center pb-2.5 text-zinc-400 hover:text-white transition">
-        <span class="w-2 h-2 rounded-full bg-zinc-400"></span>
+      <button id="padDown" data-key="20" title="Down" class="btn-press absolute bottom-0 inset-x-12 h-16 rounded-b-full flex items-end justify-center pb-2.5 text-zinc-400 hover:text-white transition">
+        <span class="w-2 h-2 rounded-full bg-zinc-400 pointer-events-none"></span>
       </button>
 
       <!-- Left Direction -->
-      <button data-key="21" title="Left" class="btn-press absolute left-0 inset-y-12 w-16 rounded-l-full flex items-center justify-start pl-2.5 text-zinc-400 hover:text-white transition">
-        <span class="w-2 h-2 rounded-full bg-zinc-400"></span>
+      <button id="padLeft" data-key="21" title="Left" class="btn-press absolute left-0 inset-y-12 w-16 rounded-l-full flex items-center justify-start pl-2.5 text-zinc-400 hover:text-white transition">
+        <span class="w-2 h-2 rounded-full bg-zinc-400 pointer-events-none"></span>
       </button>
 
       <!-- Right Direction -->
-      <button data-key="22" title="Right" class="btn-press absolute right-0 inset-y-12 w-16 rounded-r-full flex items-center justify-end pr-2.5 text-zinc-400 hover:text-white transition">
-        <span class="w-2 h-2 rounded-full bg-zinc-400"></span>
+      <button id="padRight" data-key="22" title="Right" class="btn-press absolute right-0 inset-y-12 w-16 rounded-r-full flex items-center justify-end pr-2.5 text-zinc-400 hover:text-white transition">
+        <span class="w-2 h-2 rounded-full bg-zinc-400 pointer-events-none"></span>
       </button>
 
-      <!-- Center Select / OK -->
-      <button data-key="23" title="Select" class="clickpad-center btn-press w-28 h-28 rounded-full flex items-center justify-center z-10 transition">
-        <span class="sr-only">Select</span>
-      </button>
+      <!-- Center Select / Touch Trackpad Surface (Tap = OK, Swipe = Scroll) -->
+      <div id="clickpadCenter" title="Tap to Select, Swipe to Scroll" class="clickpad-center btn-press w-28 h-28 rounded-full flex flex-col items-center justify-center z-10 transition select-none cursor-pointer touch-none">
+        <span class="w-1.5 h-1.5 rounded-full bg-zinc-500/40 pointer-events-none"></span>
+      </div>
     </div>
 
     <!-- 3. LOWER BUTTON SECTION (2 COLUMNS: BACK/PLAY/MUTE on left, TV/VOLUME on right) -->
@@ -299,35 +326,42 @@
     const keyboardDrawer = document.getElementById('keyboardDrawer');
     const textForm = document.getElementById('textForm');
     const textInput = document.getElementById('textInput');
-    const btnThemeToggle = document.getElementById('btnThemeToggle');
+    const btnScreenOffToggle = document.getElementById('btnScreenOffToggle');
+    const screenOffIcon = document.getElementById('screenOffIcon');
     const btnHapticToggle = document.getElementById('btnHapticToggle');
+    const btnLiveSyncToggle = document.getElementById('btnLiveSyncToggle');
+    const btnPasteClipboard = document.getElementById('btnPasteClipboard');
+    const btnClearInput = document.getElementById('btnClearInput');
+    const btnQuickEnter = document.getElementById('btnQuickEnter');
+    const btnQuickBackspace = document.getElementById('btnQuickBackspace');
+    const clickpadCenter = document.getElementById('clickpadCenter');
 
     let hapticsEnabled = true;
+    let liveSync = true;
     let peer = null;
     let conn = null;
+    let phoneScreenOff = false;
 
-    // Theme state (Silver Aluminum by default as in Picture 2)
-    let currentTheme = localStorage.getItem('webscrcpy-remote-theme') || 'silver';
-    applyTheme(currentTheme);
-
-    btnThemeToggle.addEventListener('click', () => {
-      currentTheme = currentTheme === 'silver' ? 'dark' : 'silver';
-      localStorage.setItem('webscrcpy-remote-theme', currentTheme);
-      applyTheme(currentTheme);
-      vibrate(15);
-    });
-
-    function applyTheme(theme) {
-      if (theme === 'dark') {
-        document.body.classList.remove('theme-silver');
-        document.body.classList.add('theme-dark');
-        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#0c0c0e');
-      } else {
-        document.body.classList.remove('theme-dark');
-        document.body.classList.add('theme-silver');
-        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#d8dade');
+    function updateScreenOffUI(off) {
+      phoneScreenOff = off;
+      if (screenOffIcon) {
+        screenOffIcon.className = off ? 'fa-solid fa-moon text-[10px]' : 'fa-solid fa-sun text-[10px]';
+      }
+      if (btnScreenOffToggle) {
+        btnScreenOffToggle.title = off ? 'Phone Screen is Off (Tap to turn on)' : 'Turn Phone Screen / Brightness Off';
+        btnScreenOffToggle.style.color = off ? '#38bdf8' : '';
+        btnScreenOffToggle.style.borderColor = off ? 'rgba(56, 189, 248, 0.6)' : '';
+        btnScreenOffToggle.style.backgroundColor = off ? 'rgba(56, 189, 248, 0.12)' : '';
       }
     }
+
+    btnScreenOffToggle?.addEventListener('click', () => {
+      vibrate(25);
+      const nextOff = !phoneScreenOff;
+      updateScreenOffUI(nextOff);
+      sendPayload({ type: 'toggle_screen', off: nextOff });
+      txtFeedback.textContent = nextOff ? 'Screen turned off' : 'Screen turned on';
+    });
 
     // Fullscreen Toggle
     btnFullscreen.addEventListener('click', async () => {
@@ -410,6 +444,10 @@
           txtFeedback.textContent = `Sent keycode ${payload.code}`;
         } else if (payload.type === 'text') {
           txtFeedback.textContent = `Sent text "${payload.text.slice(0, 18)}"`;
+        } else if (payload.type === 'swipe') {
+          txtFeedback.textContent = `Swipe ${payload.direction.toUpperCase()}`;
+        } else if (payload.type === 'scroll') {
+          txtFeedback.textContent = 'Trackpad scroll';
         }
         return true;
       } catch (err) {
@@ -419,6 +457,180 @@
         return false;
       }
     }
+
+    // Touch Trackpad & Click on Clickpad Center (Apple TV touch experience)
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let lastTouchX = 0;
+    let lastTouchY = 0;
+    let touchStartTime = 0;
+    let hasTrackpadMoved = false;
+
+    if (clickpadCenter) {
+      clickpadCenter.addEventListener('pointerdown', (e) => {
+        touchStartX = e.clientX;
+        touchStartY = e.clientY;
+        lastTouchX = e.clientX;
+        lastTouchY = e.clientY;
+        touchStartTime = Date.now();
+        hasTrackpadMoved = false;
+        clickpadCenter.setPointerCapture(e.pointerId);
+      });
+
+      clickpadCenter.addEventListener('pointermove', (e) => {
+        if (!clickpadCenter.hasPointerCapture(e.pointerId)) return;
+        const dx = e.clientX - touchStartX;
+        const dy = e.clientY - touchStartY;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist > 8) {
+          hasTrackpadMoved = true;
+          // Subtle visual deflection for tactile feedback
+          const maxDeflect = 6;
+          const defX = Math.min(Math.max(dx * 0.1, -maxDeflect), maxDeflect);
+          const defY = Math.min(Math.max(dy * 0.1, -maxDeflect), maxDeflect);
+          clickpadCenter.style.transform = `translate(${defX}px, ${defY}px)`;
+
+          // Continuous scroll delta
+          const stepX = (e.clientX - lastTouchX) / 35;
+          const stepY = (e.clientY - lastTouchY) / 35;
+          if (Math.abs(stepX) > 0.04 || Math.abs(stepY) > 0.04) {
+            sendPayload({ type: 'scroll', scrollX: -stepX, scrollY: -stepY });
+          }
+          lastTouchX = e.clientX;
+          lastTouchY = e.clientY;
+        }
+      });
+
+      const onPointerEnd = (e) => {
+        if (!clickpadCenter.hasPointerCapture(e.pointerId)) return;
+        try { clickpadCenter.releasePointerCapture(e.pointerId); } catch {}
+        clickpadCenter.style.transform = '';
+
+        const elapsed = Date.now() - touchStartTime;
+        const totalDx = e.clientX - touchStartX;
+        const totalDy = e.clientY - touchStartY;
+        const totalDist = Math.hypot(totalDx, totalDy);
+
+        if (!hasTrackpadMoved || (totalDist < 12 && elapsed < 350)) {
+          // Tap -> Select / OK
+          vibrate(12);
+          sendPayload({ type: 'key', code: 23 });
+        } else if (totalDist >= 22) {
+          // Swipe gesture
+          let direction = 'up';
+          if (Math.abs(totalDy) > Math.abs(totalDx)) {
+            direction = totalDy < 0 ? 'up' : 'down';
+          } else {
+            direction = totalDx < 0 ? 'left' : 'right';
+          }
+          vibrate(18);
+          sendPayload({ type: 'swipe', direction, distance: totalDist });
+
+          // Highlight corresponding directional indicator on the outer ring
+          const padArrow = document.getElementById(
+            direction === 'up' ? 'padUp' :
+            direction === 'down' ? 'padDown' :
+            direction === 'left' ? 'padLeft' : 'padRight'
+          );
+          if (padArrow) {
+            padArrow.classList.add('text-white', 'scale-110');
+            setTimeout(() => padArrow.classList.remove('text-white', 'scale-110'), 250);
+          }
+        }
+      };
+
+      clickpadCenter.addEventListener('pointerup', onPointerEnd);
+      clickpadCenter.addEventListener('pointercancel', onPointerEnd);
+    }
+
+    // Real-Time Keyboard Sync & Action Controls
+    btnLiveSyncToggle?.addEventListener('click', () => {
+      vibrate(10);
+      liveSync = !liveSync;
+      btnLiveSyncToggle.textContent = liveSync ? 'Live: ON' : 'Live: OFF';
+      btnLiveSyncToggle.className = liveSync
+        ? 'text-[9px] font-mono px-1.5 py-0.5 rounded border transition bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/30'
+        : 'text-[9px] font-mono px-1.5 py-0.5 rounded border transition bg-zinc-500/20 text-zinc-500 border-zinc-500/30';
+    });
+
+    btnClearInput?.addEventListener('click', () => {
+      vibrate(10);
+      textInput.value = '';
+      prevInputValue = '';
+      textInput.focus();
+    });
+
+    btnPasteClipboard?.addEventListener('click', async () => {
+      vibrate(12);
+      try {
+        const clipText = await navigator.clipboard.readText();
+        if (clipText) {
+          sendPayload({ type: 'text', text: clipText });
+          txtFeedback.textContent = 'Pasted clipboard to device';
+        }
+      } catch {
+        txtFeedback.textContent = 'Clipboard access denied';
+      }
+    });
+
+    btnQuickEnter?.addEventListener('click', () => {
+      vibrate(12);
+      sendPayload({ type: 'key', code: 66 });
+    });
+
+    btnQuickBackspace?.addEventListener('click', () => {
+      vibrate(8);
+      sendPayload({ type: 'key', code: 67 });
+    });
+
+    let prevInputValue = '';
+    textInput?.addEventListener('keydown', (e) => {
+      if (!liveSync) return;
+      if (e.key === 'Backspace' && textInput.value === '') {
+        vibrate(8);
+        sendPayload({ type: 'key', code: 67 });
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        vibrate(12);
+        if (textInput.value) {
+          sendPayload({ type: 'text', text: textInput.value });
+          textInput.value = '';
+          prevInputValue = '';
+        } else {
+          sendPayload({ type: 'key', code: 66 });
+        }
+      }
+    });
+
+    textInput?.addEventListener('input', (e) => {
+      if (!liveSync) return;
+      const current = textInput.value;
+      if (e.inputType === 'deleteContentBackward') {
+        vibrate(8);
+        sendPayload({ type: 'key', code: 67 });
+      } else if (e.data) {
+        vibrate(8);
+        sendPayload({ type: 'text', text: e.data });
+      } else if (current.length > prevInputValue.length) {
+        const added = current.slice(prevInputValue.length);
+        vibrate(8);
+        sendPayload({ type: 'text', text: added });
+      }
+      prevInputValue = current;
+    });
+
+    // Full text submit fallback
+    textForm?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const val = textInput.value?.trim();
+      if (!val) return;
+      vibrate(12);
+      if (sendPayload({ type: 'text', text: val })) {
+        textInput.value = '';
+        prevInputValue = '';
+      }
+    });
 
     function initWebRtc() {
       if (!hostPeerId) {
@@ -479,10 +691,17 @@
       conn.on('open', () => {
         clearTimeout(connectTimeout);
         setStatus('connected', 'Connected');
-        vibrate([25, 30, 25]);
+        vibrate([15, 30, 15]);
         txtFeedback.textContent = 'WebRTC DataChannel active';
         txtFeedback.className = 'text-emerald-600 dark:text-emerald-400';
         conn.send({ type: 'handshake', device: /iphone|ipad/i.test(navigator.userAgent) ? 'iPhone' : 'Android' });
+      });
+
+      conn.on('data', (data) => {
+        if (!data) return;
+        if (data.type === 'screen_state' && typeof data.off === 'boolean') {
+          updateScreenOffUI(data.off);
+        }
       });
 
       conn.on('close', () => {
@@ -502,25 +721,22 @@
       const code = Number(btn.getAttribute('data-key'));
       btn.addEventListener('click', (e) => {
         e.preventDefault();
-        vibrate(25);
+        vibrate(12);
         sendPayload({ type: 'key', code });
       });
     });
 
-    // Handle text submission
-    textForm?.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const val = textInput.value?.trim();
-      if (!val) return;
-      vibrate(25);
-      if (sendPayload({ type: 'text', text: val })) {
-        textInput.value = '';
-      }
-    });
-
     btnReconnect?.addEventListener('click', () => {
+      vibrate(15);
       initWebRtc();
     });
+
+    // PWA Service Worker Registration
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
 
     // Start WebRTC connection
     initWebRtc();

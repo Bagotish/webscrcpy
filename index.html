@@ -194,7 +194,7 @@
     <!-- WIRELESS PHONE REMOTE VIEW -->
     <div id="remoteView" class="hidden w-full max-w-sm max-h-[calc(100vh-5.5rem)] flex flex-col justify-start py-2 select-none overflow-y-auto term-scroll px-1 z-20">
       <div id="remoteCard" class="rounded-2xl bg-zinc-900/95 backdrop-blur-xl border border-zinc-800/80 p-5 shadow-2xl space-y-4">
-        <!-- Top status & power bar -->
+        <!-- Top status header -->
         <div class="flex items-center justify-between pb-3 border-b border-zinc-800/80">
           <div class="flex items-center gap-2.5 min-w-0">
             <span id="remoteStatusDot" class="w-2 h-2 rounded-full bg-zinc-600 shrink-0"></span>
@@ -202,15 +202,6 @@
               <span class="block text-xs font-medium text-zinc-200">Phone Remote</span>
               <span id="remoteStatusText" class="block text-[10px] text-zinc-500 truncate">WebRTC P2P</span>
             </div>
-          </div>
-          <div class="flex items-center gap-1.5 shrink-0">
-            <button id="btnRemoteScreenOff" type="button" title="Toggle Phone Screen Off" class="h-7 px-2.5 rounded-lg border border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-white text-[11px] font-medium transition flex items-center gap-1.5">
-              <span id="remoteScreenOffIcon" class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
-              <span id="remoteScreenOffText">Screen Off</span>
-            </button>
-            <button id="btnRemotePower" type="button" title="Power / Lock Phone" class="w-7 h-7 rounded-lg border border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 text-xs transition flex items-center justify-center">
-              <i class="fa-solid fa-power-off text-[10px]"></i>
-            </button>
           </div>
         </div>
 
@@ -255,15 +246,21 @@
 
         <!-- Local / file:// warning and host IP helper -->
         <div id="remoteLocalWarning" class="hidden p-3 rounded-xl bg-zinc-950 border border-zinc-800 text-[11px] space-y-2">
-          <div class="flex items-center gap-1.5 font-medium text-zinc-300">
-            <i class="fa-solid fa-circle-info text-xs"></i>
-            <span>Local file or localhost detected</span>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5 font-medium text-zinc-300">
+              <i class="fa-solid fa-network-wired text-xs"></i>
+              <span>LAN Network Setup</span>
+            </div>
+            <span id="remoteAutoIpBadge" class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">Probing IP...</span>
           </div>
-          <p class="text-zinc-400 text-[10px] leading-relaxed">
-            Phones cannot access localhost via QR code. Enter your computer's LAN IP (e.g. 192.168.1.10:8000):
+          <p id="remoteLocalWarningDesc" class="text-zinc-400 text-[10px] leading-relaxed">
+            Phones cannot access localhost. Auto-detecting your computer's LAN IP for the QR code:
           </p>
           <div class="flex items-center gap-1.5">
-            <input type="text" id="inputCustomHost" placeholder="192.168.1.10:8000" class="flex-1 min-w-0 bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1 text-[11px] font-mono text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-700">
+            <input type="text" id="inputCustomHost" placeholder="e.g. 192.168.1.10:8000" class="flex-1 min-w-0 bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1 text-[11px] font-mono text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-700">
+            <button type="button" id="btnAutoDetectIp" title="Auto-detect local IP" class="h-6 px-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[10px] font-medium transition flex items-center gap-1 shrink-0">
+              <i class="fa-solid fa-wand-magic-sparkles text-[9px]"></i> <span>Auto</span>
+            </button>
             <button type="button" id="btnApplyCustomHost" class="h-6 px-2.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[10px] font-medium transition flex items-center gap-1 shrink-0">
               <i class="fa-solid fa-rotate text-[9px]"></i> <span>Update</span>
             </button>
@@ -3081,18 +3078,13 @@
           txt.textContent = 'No Device Connected (Connect via Wi-Fi or USB)';
         }
       }
-
-      const scrOffIcon = document.getElementById('remoteScreenOffIcon');
-      const scrOffText = document.getElementById('remoteScreenOffText');
-      const off = chkTurnOffScreen?.checked;
-      if (scrOffIcon) scrOffIcon.className = off ? 'w-1.5 h-1.5 rounded-full bg-zinc-200' : 'w-1.5 h-1.5 rounded-full bg-zinc-500';
-      if (scrOffText) scrOffText.textContent = off ? 'Screen On' : 'Screen Off';
     }
 
     // =========================================================================
     // WebRTC Peer-to-Peer TV & Phone Remote Logic
     // =========================================================================
     let tvRemotePeer = null;
+    let activeRemoteConn = null;
     let tvRemotePeerUrl = '';
     let activityTimer = null;
 
@@ -3150,6 +3142,100 @@
 
     let currentPeerHostId = '';
 
+    function detectLocalIp() {
+      return new Promise((resolve) => {
+        let done = false;
+        const finish = (ip) => {
+          if (!done) {
+            done = true;
+            try { pc.close(); } catch {}
+            resolve(ip);
+          }
+        };
+        let pc;
+        try {
+          const RTCPC = window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
+          if (!RTCPC) return finish(null);
+          pc = new RTCPC({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+          pc.createDataChannel('local-ip-probe');
+          pc.onicecandidate = (evt) => {
+            if (!evt || !evt.candidate || !evt.candidate.candidate) return;
+            const cand = evt.candidate.candidate;
+            const parts = cand.split(' ');
+            for (let i = 0; i < parts.length; i++) {
+              const item = parts[i];
+              if (/^(\d{1,3}\.){3}\d{1,3}$/.test(item)) {
+                if (item !== '127.0.0.1' && !item.startsWith('0.') && !item.startsWith('169.254.')) {
+                  finish(item);
+                  return;
+                }
+              }
+            }
+          };
+          pc.createOffer().then(o => pc.setLocalDescription(o)).catch(() => finish(null));
+          setTimeout(() => finish(null), 1500);
+        } catch {
+          finish(null);
+        }
+      });
+    }
+
+    async function handleRemoteSwipe(direction) {
+      const canvas = videoCanvas;
+      const { width, height } = (canvas && surfaceSize(canvas).width) ? surfaceSize(canvas) : { width: 1080, height: 2340 };
+      const cx = Math.round(width / 2);
+      const cy = Math.round(height / 2);
+      let x1 = cx, y1 = cy, x2 = cx, y2 = cy;
+      if (direction === 'up') {
+        y1 = Math.round(height * 0.70);
+        y2 = Math.round(height * 0.30);
+      } else if (direction === 'down') {
+        y1 = Math.round(height * 0.30);
+        y2 = Math.round(height * 0.70);
+      } else if (direction === 'left') {
+        x1 = Math.round(width * 0.80);
+        x2 = Math.round(width * 0.20);
+      } else if (direction === 'right') {
+        x1 = Math.round(width * 0.20);
+        x2 = Math.round(width * 0.80);
+      }
+
+      if (state.client?.controller) {
+        const ctrl = state.client.controller;
+        const pId = 0n;
+        try {
+          await ctrl.injectTouch({ action: AndroidMotionEventAction.Down, pointerId: pId, pointerX: x1, pointerY: y1, videoWidth: width, videoHeight: height, pressure: 1, actionButton: 0, buttons: 0 });
+          const steps = 4;
+          for (let i = 1; i <= steps; i++) {
+            const curX = Math.round(x1 + (x2 - x1) * (i / steps));
+            const curY = Math.round(y1 + (y2 - y1) * (i / steps));
+            await ctrl.injectTouch({ action: AndroidMotionEventAction.Move, pointerId: pId, pointerX: curX, pointerY: curY, videoWidth: width, videoHeight: height, pressure: 1, actionButton: 0, buttons: 0 });
+          }
+          await ctrl.injectTouch({ action: AndroidMotionEventAction.Up, pointerId: pId, pointerX: x2, pointerY: y2, videoWidth: width, videoHeight: height, pressure: 0, actionButton: 0, buttons: 0 });
+        } catch {}
+      } else if (state.adb) {
+        try {
+          await state.adb.subprocess.noneProtocol.spawnWait(['input', 'swipe', String(x1), String(y1), String(x2), String(y2), '250']);
+        } catch {}
+      }
+    }
+
+    function handleRemoteScroll(scrollX, scrollY) {
+      if (state.client?.controller) {
+        const canvas = videoCanvas;
+        const { width, height } = (canvas && surfaceSize(canvas).width) ? surfaceSize(canvas) : { width: 1080, height: 2340 };
+        state.client.controller.injectScroll({
+          pointerX: Math.round(width / 2),
+          pointerY: Math.round(height / 2),
+          videoWidth: width,
+          videoHeight: height,
+          scrollX: Math.min(Math.max(scrollX, -1), 1),
+          scrollY: Math.min(Math.max(scrollY, -1), 1),
+          buttons: 0,
+        }).catch(() => {});
+      }
+    }
+
     function initTvRemotePeer() {
       if (tvRemotePeer) return;
       const statusText = document.getElementById('remotePeerText');
@@ -3164,6 +3250,34 @@
         if (inputCustomHost) {
           inputCustomHost.value = localStorage.getItem('webscrcpy-custom-remote-host') || '';
         }
+
+        // Auto-detect computer LAN IP so user does not need to type manually
+        detectLocalIp().then((ip) => {
+          const badge = document.getElementById('remoteAutoIpBadge');
+          const desc = document.getElementById('remoteLocalWarningDesc');
+          if (ip) {
+            const port = window.location.port || '8000';
+            const autoHost = `${ip}:${port}`;
+            if (badge) {
+              badge.textContent = `LAN: ${ip}`;
+              badge.className = 'text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/60 border border-emerald-800 text-emerald-400';
+            }
+            if (desc) {
+              desc.textContent = `Auto-detected LAN host: ${autoHost}. QR code configured for phone access.`;
+            }
+            if (!localStorage.getItem('webscrcpy-custom-remote-host')) {
+              if (inputCustomHost) inputCustomHost.value = autoHost;
+              localStorage.setItem('webscrcpy-custom-remote-host', autoHost);
+              if (currentPeerHostId) {
+                const targetUrl = buildRemoteUrl(currentPeerHostId);
+                renderRemoteQr(targetUrl);
+              }
+            }
+            logTerm('Auto-detected computer LAN IP: ' + autoHost, 'success');
+          } else {
+            if (badge) badge.textContent = 'Manual LAN IP';
+          }
+        });
       }
 
       if (typeof Peer === 'undefined') {
@@ -3201,23 +3315,37 @@
       });
 
       tvRemotePeer.on('connection', (conn) => {
+        activeRemoteConn = conn;
         if (statusText) statusText.textContent = 'Phone connected (WebRTC P2P)';
         if (statusDot) statusDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400';
         logTerm('Phone Remote connected via WebRTC: ' + conn.peer, 'success');
         flashRemoteActivity('Phone connected');
+        try { conn.send({ type: 'screen_state', off: !!chkTurnOffScreen.checked }); } catch {}
 
         conn.on('data', (data) => {
           if (!data) return;
           if (data.type === 'key' && typeof data.code === 'number') {
             sendAdbKey(data.code).catch(() => {});
-            flashRemoteActivity('Key sent: ' + data.code);
+            flashRemoteActivity('Key: ' + data.code);
           } else if (data.type === 'text' && typeof data.text === 'string') {
             injectTextToPhone(data.text).catch(() => {});
-            flashRemoteActivity('Text sent: "' + data.text.slice(0, 15) + '"');
+            flashRemoteActivity('Text: "' + data.text.slice(0, 15) + '"');
+          } else if (data.type === 'swipe' && typeof data.direction === 'string') {
+            handleRemoteSwipe(data.direction).catch(() => {});
+            flashRemoteActivity('Swipe: ' + data.direction.toUpperCase());
+          } else if (data.type === 'scroll') {
+            handleRemoteScroll(data.scrollX || 0, data.scrollY || 0);
+          } else if (data.type === 'toggle_screen' || data.type === 'screen_off') {
+            const nextOff = typeof data.off === 'boolean' ? data.off : !chkTurnOffScreen.checked;
+            setPhoneScreenOff(nextOff).then(() => {
+              try { conn.send({ type: 'screen_state', off: chkTurnOffScreen.checked }); } catch {}
+            }).catch(() => {});
+            flashRemoteActivity(nextOff ? 'Phone screen off' : 'Phone screen on');
           }
         });
 
         conn.on('close', () => {
+          if (activeRemoteConn === conn) activeRemoteConn = null;
           if (statusText) statusText.textContent = 'Phone disconnected. Waiting for scan...';
           if (statusDot) statusDot.className = 'w-1.5 h-1.5 rounded-full bg-zinc-400 animate-pulse';
           logTerm('Phone Remote WebRTC disconnected.', 'warn');
@@ -3238,10 +3366,35 @@
         setViewMode(state.viewMode === 'remote' ? 'mirror' : 'remote');
       });
 
-      // Power & Screen off controls in header
-      document.getElementById('btnRemotePower')?.addEventListener('click', () => sendAdbKey(26));
-      document.getElementById('btnRemoteScreenOff')?.addEventListener('click', () => {
-        setPhoneScreenOff(!chkTurnOffScreen.checked).then(updateRemoteStatus).catch(() => {});
+      // Auto detect LAN IP button
+      document.getElementById('btnAutoDetectIp')?.addEventListener('click', async () => {
+        logTerm('Probing local network IP via WebRTC...', 'system');
+        const badge = document.getElementById('remoteAutoIpBadge');
+        const desc = document.getElementById('remoteLocalWarningDesc');
+        if (badge) badge.textContent = 'Probing...';
+        const ip = await detectLocalIp();
+        if (ip) {
+          const port = window.location.port || '8000';
+          const autoHost = `${ip}:${port}`;
+          const input = document.getElementById('inputCustomHost');
+          if (input) input.value = autoHost;
+          localStorage.setItem('webscrcpy-custom-remote-host', autoHost);
+          if (currentPeerHostId) {
+            const newUrl = buildRemoteUrl(currentPeerHostId);
+            renderRemoteQr(newUrl);
+          }
+          if (badge) {
+            badge.textContent = `LAN: ${ip}`;
+            badge.className = 'text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/60 border border-emerald-800 text-emerald-400';
+          }
+          if (desc) {
+            desc.textContent = `Auto-detected LAN host: ${autoHost}. QR code configured for phone access.`;
+          }
+          logTerm(`Auto-detected computer LAN IP: ${autoHost}`, 'success');
+        } else {
+          if (badge) badge.textContent = 'Manual LAN IP';
+          logTerm('Could not auto-detect LAN IP. Please enter it manually.', 'warn');
+        }
       });
 
       // Apply custom remote host URL / IP
@@ -3377,9 +3530,19 @@
       chkTurnOffScreen.checked = off;
       renderPipScreenBtn();
       updateRemoteStatus();
+      if (activeRemoteConn && activeRemoteConn.open) {
+        try { activeRemoteConn.send({ type: 'screen_state', off }); } catch {}
+      }
       const controller = state.client?.controller;
-      if (!controller) return;
-      await controller.setScreenPowerMode(off ? AndroidScreenPowerMode.Off : AndroidScreenPowerMode.Normal);
+      if (controller) {
+        await controller.setScreenPowerMode(off ? AndroidScreenPowerMode.Off : AndroidScreenPowerMode.Normal);
+      } else if (state.adb) {
+        if (off) {
+          await state.adb.subprocess.noneProtocol.spawnWait(['settings', 'put', 'system', 'screen_brightness', '0']).catch(() => {});
+        } else {
+          await state.adb.subprocess.noneProtocol.spawnWait(['settings', 'put', 'system', 'screen_brightness', '128']).catch(() => {});
+        }
+      }
       logTerm(off ? 'Phone physical screen turned off.' : 'Phone physical screen turned on.', 'system');
     }
 

@@ -40,6 +40,12 @@ export interface TVRemoteModalProps {
   onSendKeycode: (code: number) => Promise<void> | void;
   /** Handler invoked when arbitrary text is submitted by the phone */
   onInjectText?: (text: string) => Promise<void> | void;
+  /** Handler invoked when screen off / brightness toggle is requested from the phone */
+  onToggleScreen?: (off?: boolean) => Promise<void> | void;
+  /** Handler invoked when touch trackpad swipe gesture is performed */
+  onSwipe?: (direction: string) => Promise<void> | void;
+  /** Handler invoked when touch trackpad scroll event is performed */
+  onScroll?: (scrollX: number, scrollY: number) => Promise<void> | void;
   /** Base URL for the mobile remote web page (defaults to window.location.origin + /remote.html) */
   remoteUrlBase?: string;
 }
@@ -57,6 +63,9 @@ export const TVRemoteModal: React.FC<TVRemoteModalProps> = ({
   onClose,
   onSendKeycode,
   onInjectText,
+  onToggleScreen,
+  onSwipe,
+  onScroll,
   remoteUrlBase,
 }) => {
   const [status, setStatus] = useState<ConnectionStatus>('idle');
@@ -143,6 +152,27 @@ export const TVRemoteModal: React.FC<TVRemoteModalProps> = ({
                 await onInjectText(data.text);
               } catch (err) {
                 console.error('Failed to inject text:', err);
+              }
+            } else if ((data.type === 'toggle_screen' || data.type === 'screen_off') && onToggleScreen) {
+              try {
+                const off = (data as { off?: boolean }).off;
+                await onToggleScreen(off);
+              } catch (err) {
+                console.error('Failed to toggle screen:', err);
+              }
+            } else if (data.type === 'swipe' && onSwipe) {
+              try {
+                const dir = (data as { direction?: string }).direction;
+                if (dir) await onSwipe(dir);
+              } catch (err) {
+                console.error('Failed to handle swipe:', err);
+              }
+            } else if (data.type === 'scroll' && onScroll) {
+              try {
+                const s = data as { scrollX?: number; scrollY?: number };
+                await onScroll(s.scrollX || 0, s.scrollY || 0);
+              } catch (err) {
+                console.error('Failed to handle scroll:', err);
               }
             }
           });
