@@ -8,6 +8,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 
   <script>
     tailwind.config = {
@@ -24,7 +26,7 @@
   </script>
 
   <style>
-    body { background-color: #0a0a0b; color: #e4e4e7; font-family: 'Inter', sans-serif; }
+    body { background-color: #09090b; color: #f4f4f5; font-family: 'Inter', sans-serif; }
     .hidden { display: none !important; }
     .term-scroll::-webkit-scrollbar { width: 4px; }
     .term-scroll::-webkit-scrollbar-thumb { background: #27272a; border-radius: 4px; }
@@ -80,106 +82,54 @@
       inset: 0 !important;
       border-radius: 0 !important;
     }
-    body.is-fullscreen #remoteCard {
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
-      backdrop-filter: none !important;
-      padding: 0 !important;
-    }
-    body.is-fullscreen #remoteView {
-      max-height: 100vh !important;
-      height: 100vh !important;
-      padding: 0.5rem 0 !important;
-      border: none !important;
-      box-shadow: none !important;
-    }
     input[type=range] { accent-color: #e4e4e7; }
-    .popout { transition: opacity .15s ease, transform .15s ease; }
+    .popout { transition: opacity .15s cubic-bezier(0.16, 1, 0.3, 1), transform .15s cubic-bezier(0.16, 1, 0.3, 1); }
     .popout.closed { opacity: 0; transform: translateY(-6px) scale(.98); pointer-events: none; }
-
-    /* Remote Scale Variations */
-    #remoteView.remote-scale-compact { max-width: 320px; }
-    #remoteView.remote-scale-compact .remote-dpad-circle { width: 9.5rem; height: 9.5rem; }
-    #remoteView.remote-scale-compact .remote-dpad-ok { width: 3.5rem; height: 3.5rem; font-size: 0.7rem; }
-    #remoteView.remote-scale-compact .remote-dpad-tb { inset-inline: 2.75rem; height: 2.25rem; }
-    #remoteView.remote-scale-compact .remote-dpad-lr { inset-block: 2.75rem; width: 2.25rem; }
-
-    #remoteView.remote-scale-normal { max-width: 384px; }
-    #remoteView.remote-scale-normal .remote-dpad-circle { width: 11rem; height: 11rem; }
-    #remoteView.remote-scale-normal .remote-dpad-ok { width: 4rem; height: 4rem; font-size: 0.75rem; }
-    #remoteView.remote-scale-normal .remote-dpad-tb { inset-inline: 3.5rem; height: 2.5rem; }
-    #remoteView.remote-scale-normal .remote-dpad-lr { inset-block: 3.5rem; width: 2.5rem; }
-
-    #remoteView.remote-scale-large { max-width: 460px; }
-    #remoteView.remote-scale-large .remote-dpad-circle { width: 13.5rem; height: 13.5rem; }
-    #remoteView.remote-scale-large .remote-dpad-ok { width: 4.75rem; height: 4.75rem; font-size: 0.875rem; }
-    #remoteView.remote-scale-large .remote-dpad-tb { inset-inline: 4.25rem; height: 3.25rem; }
-    #remoteView.remote-scale-large .remote-dpad-lr { inset-block: 4.25rem; width: 3.25rem; }
-
-    /* Customizing mode dashed outline & states */
-    .remote-customizing .remote-section {
-      border: 1px dashed rgba(82, 82, 91, 0.7);
-      padding: 6px;
-      border-radius: 18px;
-      background: rgba(24, 24, 27, 0.4);
-    }
-    .remote-section.is-hidden {
-      display: none;
-    }
-    .remote-customizing .remote-section.is-hidden {
-      display: block !important;
-      opacity: 0.55;
-      border-color: rgba(239, 68, 68, 0.45);
-      background: rgba(239, 68, 68, 0.05);
-    }
-    .remote-customizing .remote-section.is-hidden .remote-sec-content {
-      display: none !important;
-    }
   </style>
 </head>
-<body class="h-full overflow-hidden selection:bg-zinc-700">
+<body class="h-full overflow-hidden selection:bg-zinc-800 selection:text-zinc-100">
 
   <!-- TOP BAR -->
-  <header class="fixed top-0 inset-x-0 z-30 flex items-center justify-between px-5 py-4">
+  <header class="fixed top-0 inset-x-0 z-30 flex items-center justify-between px-5 py-2.5 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800/60">
     <div class="flex items-center gap-3 min-w-0">
       <div class="flex items-center gap-2.5 min-w-0">
         <span id="statusDot" class="w-2 h-2 rounded-full bg-zinc-600 shrink-0"></span>
-        <span id="txtDeviceName" class="text-sm text-zinc-400 truncate">No device connected</span>
+        <span id="txtDeviceName" class="text-xs font-medium text-zinc-400 truncate max-w-[200px] sm:max-w-none">No device connected</span>
       </div>
       <div id="viewModeSwitch" class="flex items-center p-0.5 rounded-full bg-zinc-900 border border-zinc-800 text-xs shrink-0">
-        <button type="button" id="btnModeMirror" class="px-2.5 py-1 rounded-full bg-zinc-800 text-white font-medium transition flex items-center gap-1.5">
+        <button type="button" id="btnModeMirror" class="px-3 py-1 rounded-full bg-zinc-800 text-zinc-100 font-medium transition flex items-center gap-1.5">
           <i class="fa-solid fa-mobile-screen text-[10px]"></i><span>Mirror</span>
         </button>
-        <button type="button" id="btnModeRemote" class="px-2.5 py-1 rounded-full text-zinc-400 hover:text-white transition flex items-center gap-1.5">
-          <i class="fa-solid fa-gamepad text-[10px]"></i><span>Remote</span>
+        <button type="button" id="btnModeRemote" class="px-3 py-1 rounded-full text-zinc-400 hover:text-zinc-100 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-qrcode text-[10px]"></i><span>Remote</span>
         </button>
       </div>
     </div>
 
-    <div class="flex items-center gap-3">
-      <div class="hidden sm:flex items-center gap-3 text-[11px] font-mono text-zinc-500">
+    <div class="flex items-center gap-2">
+      <div class="hidden sm:flex items-center gap-2 text-[11px] font-mono text-zinc-500 mr-1">
         <span id="badgeRes">--</span>
+        <span class="text-zinc-700">·</span>
         <span id="badgeFps">0 FPS</span>
       </div>
-      <button id="btnFullscreen" title="Fullscreen" class="w-8 h-8 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
-        <i class="fa-solid fa-expand text-sm"></i>
+      <button id="btnFullscreen" title="Fullscreen" class="w-8 h-8 rounded-full border border-zinc-800/60 bg-zinc-900/50 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition flex items-center justify-center">
+        <i class="fa-solid fa-expand text-xs"></i>
       </button>
-      <button id="btnPip" title="Picture in Picture (Ctrl+A minimizes)" class="w-8 h-8 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
-        <i class="fa-solid fa-clone text-sm"></i>
+      <button id="btnPip" title="Picture in Picture (Ctrl+A minimizes)" class="w-8 h-8 rounded-full border border-zinc-800/60 bg-zinc-900/50 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition flex items-center justify-center">
+        <i class="fa-solid fa-clone text-xs"></i>
       </button>
-      <button id="btnSettings" title="Settings" class="w-8 h-8 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
-        <i class="fa-solid fa-sliders text-sm"></i>
+      <button id="btnDownloadHelper" title="Wi-Fi Bridge Helper" class="w-8 h-8 rounded-full border border-zinc-800/60 bg-zinc-900/50 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition flex items-center justify-center">
+        <i class="fa-solid fa-wifi text-xs"></i>
       </button>
-      <button id="btnDownloadHelper" title="Wi-Fi Bridge Helper" class="w-8 h-8 rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center transition shadow-md shadow-blue-900/30">
-        <i class="fa-solid fa-download text-sm"></i>
+      <button id="btnSettings" title="Settings" class="w-8 h-8 rounded-full border border-zinc-800/60 bg-zinc-900/50 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition flex items-center justify-center">
+        <i class="fa-solid fa-sliders text-xs"></i>
       </button>
-      <button id="btnWebUsbConnect" class="h-8 px-4 rounded-full bg-white text-zinc-900 hover:bg-zinc-200 text-xs font-medium transition flex items-center gap-2">
-        <i class="fa-brands fa-usb"></i><span>Connect</span>
+      <button id="btnChangelog" title="Changelog" class="relative w-8 h-8 rounded-full border border-zinc-800/60 bg-zinc-900/50 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition flex items-center justify-center">
+        <i class="fa-solid fa-bell text-xs"></i>
+        <span id="changelogBadge" class="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-zinc-300 ring-2 ring-zinc-950"></span>
       </button>
-      <button id="btnChangelog" title="Changelog" class="relative w-8 h-8 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
-        <i class="fa-solid fa-bell text-sm"></i>
-        <span id="changelogBadge" class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-500 ring-2 ring-zinc-950"></span>
+      <button id="btnWebUsbConnect" class="h-8 px-3.5 rounded-full bg-zinc-100 text-zinc-900 hover:bg-white text-xs font-medium transition flex items-center gap-1.5 ml-1 shadow-sm">
+        <i class="fa-brands fa-usb text-[11px]"></i><span>Connect</span>
       </button>
     </div>
   </header>
@@ -187,557 +137,303 @@
   <!-- SCREEN -->
   <main class="relative h-full flex items-center justify-center px-6 pt-16 pb-6">
     <div id="dropOverlay" class="hidden absolute inset-4 z-50 flex flex-col items-center justify-center bg-zinc-950/85 backdrop-blur-md border border-dashed border-zinc-700/80 rounded-3xl pointer-events-none transition-all">
-      <div class="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300 mb-3 shadow-lg">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <div class="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300 mb-2.5 shadow-lg">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
           <rect x="5" y="2" width="14" height="20" rx="3"/>
           <path d="M12 6v8m0 0l-3-3m3 3l3-3"/>
           <path d="M10 18h4"/>
         </svg>
       </div>
-      <p class="text-sm font-medium text-zinc-200">Drop file to push to phone</p>
-      <p class="text-xs text-zinc-500 font-mono mt-0.5">/sdcard/Download/</p>
+      <p class="text-xs font-medium text-zinc-200">Drop file to transfer to phone</p>
+      <p class="text-[11px] text-zinc-500 font-mono mt-0.5">/sdcard/Download/</p>
     </div>
+
     <div id="pipView" class="hidden absolute inset-0 flex flex-col items-center justify-center text-center gap-3 select-none">
-      <i class="fa-solid fa-clone text-3xl text-zinc-700"></i>
-      <p class="text-sm text-zinc-400">Playing in Picture-in-Picture</p>
-      <p class="text-xs text-zinc-600">Ctrl+A minimizes or restores. Hover the small button to open the controls.</p>
-      <button id="btnExitPip" class="h-8 px-4 rounded-full border border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white text-xs transition">Back to this tab</button>
+      <i class="fa-solid fa-clone text-2xl text-zinc-600"></i>
+      <p class="text-xs font-medium text-zinc-400">Playing in Picture-in-Picture</p>
+      <p class="text-[11px] text-zinc-600">Press Ctrl+A to minimize or restore.</p>
+      <button id="btnExitPip" class="h-8 px-4 rounded-full border border-zinc-800 bg-zinc-900/60 text-zinc-300 hover:bg-zinc-800 hover:text-white text-xs font-medium transition">Back to this tab</button>
     </div>
+
     <div id="modeChooser" class="hidden flex flex-col items-center justify-center text-center gap-3.5 select-none px-6">
-      <div class="w-16 h-16 rounded-2xl bg-zinc-900/80 border border-zinc-800 flex items-center justify-center text-zinc-500 text-3xl">
+      <div class="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 text-2xl shadow-lg">
         <i class="fa-solid fa-display"></i>
       </div>
       <div class="space-y-1">
-        <p class="text-sm font-medium text-zinc-200">Samsung DeX is available</p>
-        <p id="modeChooserHint" class="text-xs text-zinc-500 max-w-sm leading-relaxed">Mirror the phone screen, or open the DeX desktop.</p>
+        <p class="text-xs font-medium text-zinc-200">Samsung DeX is available</p>
+        <p id="modeChooserHint" class="text-[11px] text-zinc-500 max-w-sm leading-relaxed">Choose between phone screen mirroring or the DeX desktop.</p>
       </div>
       <div class="flex items-center gap-2 pt-1">
-        <button id="btnChooseMirror" class="h-8 px-5 rounded-full bg-white text-zinc-900 hover:bg-zinc-200 text-xs font-medium transition">Mirror</button>
-        <button id="btnChooseDex" class="h-8 px-5 rounded-full border border-zinc-700 text-zinc-200 hover:bg-zinc-800 text-xs font-medium transition">DeX</button>
+        <button id="btnChooseMirror" class="h-8 px-4 rounded-full bg-zinc-100 text-zinc-900 hover:bg-white text-xs font-medium transition shadow-sm">Mirror</button>
+        <button id="btnChooseDex" class="h-8 px-4 rounded-full border border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white text-xs font-medium transition">DeX</button>
       </div>
     </div>
-    <div id="idleView" class="flex flex-col items-center text-center gap-3.5 select-none px-4">
-      <div class="w-16 h-16 rounded-2xl bg-zinc-900/80 border border-zinc-800 flex items-center justify-center text-zinc-600 text-3xl">
+
+    <div id="idleView" class="flex flex-col items-center text-center gap-3.5 select-none px-6 py-12 max-w-md">
+      <div class="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800/80 flex items-center justify-center text-zinc-400 text-xl shadow-lg">
         <i class="fa-solid fa-mobile-screen"></i>
       </div>
       <div class="space-y-1">
-        <p class="text-sm font-medium text-zinc-300">No device connected</p>
-        <p class="text-xs text-zinc-500 max-w-sm leading-relaxed">
-          Connect your phone via USB cable, or setup <span class="text-zinc-300 font-medium">Wi-Fi Helper</span> for wireless mirroring.
+        <h2 class="text-xs font-semibold text-zinc-200">No device connected</h2>
+        <p class="text-[11px] text-zinc-500 leading-relaxed">
+          Connect your Android device via USB cable or setup Wi-Fi for wireless mirroring.
         </p>
       </div>
       <div class="flex items-center gap-2 pt-1">
-        <button id="btnIdleConnect" type="button" class="h-8 px-4 rounded-full bg-white text-zinc-900 hover:bg-zinc-200 text-xs font-medium transition flex items-center gap-2">
-          <i class="fa-brands fa-usb"></i> Connect USB
+        <button id="btnIdleConnect" type="button" class="h-8 px-4 rounded-full bg-zinc-100 hover:bg-white text-zinc-900 text-xs font-medium transition flex items-center gap-2 shadow-sm">
+          <i class="fa-brands fa-usb text-[11px]"></i> Connect USB
         </button>
-        <button id="btnIdleWifiHelper" type="button" class="h-8 px-3.5 rounded-full border border-zinc-800 bg-zinc-900 text-zinc-300 hover:text-white hover:bg-zinc-800 text-xs font-medium transition flex items-center gap-1.5">
-          <i class="fa-solid fa-wifi text-emerald-400 text-[11px]"></i> Wi-Fi Setup
+        <button id="btnIdleWifiHelper" type="button" class="h-8 px-4 rounded-full border border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white text-xs font-medium transition flex items-center gap-2">
+          <i class="fa-solid fa-wifi text-[11px]"></i> Wi-Fi Setup
         </button>
       </div>
     </div>
-    <canvas id="videoCanvas" tabindex="0" class="hidden cursor-pointer touch-none outline-none rounded-[22px] shadow-2xl shadow-black" style="max-height: calc(100vh - 6.5rem); max-width: 100%; width: auto; height: auto;"></canvas>
 
-    <!-- REMOTE CONTROL MODE VIEW -->
+    <canvas id="videoCanvas" tabindex="0" class="hidden cursor-pointer touch-none outline-none rounded-2xl shadow-2xl shadow-black" style="max-height: calc(100vh - 6.5rem); max-width: 100%; width: auto; height: auto;"></canvas>
+
+    <!-- WIRELESS PHONE REMOTE VIEW -->
     <div id="remoteView" class="hidden w-full max-w-sm max-h-[calc(100vh-5.5rem)] flex flex-col justify-start py-2 select-none overflow-y-auto term-scroll px-1 z-20">
-      <div id="remoteCard" class="rounded-3xl bg-zinc-900/95 backdrop-blur-md border border-zinc-800 p-4 sm:p-5 shadow-2xl space-y-3.5">
-        <!-- Top status & power bar (Fixed across all layouts) -->
-        <div class="flex items-center justify-between pb-2 border-b border-zinc-800/60">
-          <div class="flex items-center gap-2 min-w-0">
-            <span id="remoteStatusDot" class="w-2.5 h-2.5 rounded-full bg-zinc-600 shrink-0"></span>
-            <span id="remoteStatusText" class="text-xs font-medium text-zinc-300 truncate">Remote Control</span>
+      <div id="remoteCard" class="rounded-2xl bg-zinc-900/95 backdrop-blur-xl border border-zinc-800/80 p-5 shadow-2xl space-y-4">
+        <!-- Top status & power bar -->
+        <div class="flex items-center justify-between pb-3 border-b border-zinc-800/80">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span id="remoteStatusDot" class="w-2 h-2 rounded-full bg-zinc-600 shrink-0"></span>
+            <div class="min-w-0">
+              <span class="block text-xs font-medium text-zinc-200">Phone Remote</span>
+              <span id="remoteStatusText" class="block text-[10px] text-zinc-500 truncate">WebRTC P2P</span>
+            </div>
           </div>
           <div class="flex items-center gap-1.5 shrink-0">
-            <button id="btnRemoteCustomize" type="button" title="Customize Layout 1 (Reorder, Size, Hide/Show)" class="h-7 px-2.5 rounded-full border border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-white text-[11px] font-medium transition flex items-center gap-1">
-              <i class="fa-solid fa-sliders text-[10px]"></i>
-              <span id="remoteCustomizeText">Customize</span>
-            </button>
-            <button id="btnRemoteScreenOff" type="button" title="Toggle Phone Screen Off (Keeps Phone Cool & Saves Battery)" class="h-7 px-2.5 rounded-full border border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-white text-[11px] font-medium transition flex items-center gap-1">
-              <span id="remoteScreenOffIcon">●</span>
+            <button id="btnRemoteScreenOff" type="button" title="Toggle Phone Screen Off" class="h-7 px-2.5 rounded-lg border border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-white text-[11px] font-medium transition flex items-center gap-1.5">
+              <span id="remoteScreenOffIcon" class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
               <span id="remoteScreenOffText">Screen Off</span>
             </button>
-            <button id="btnRemotePower" type="button" title="Power / Lock Phone" class="w-7 h-7 rounded-full border border-zinc-800 bg-zinc-950 text-red-400 hover:text-red-300 hover:bg-zinc-800 text-xs transition flex items-center justify-center">
-              <i class="fa-solid fa-power-off"></i>
+            <button id="btnRemotePower" type="button" title="Power / Lock Phone" class="w-7 h-7 rounded-lg border border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 text-xs transition flex items-center justify-center">
+              <i class="fa-solid fa-power-off text-[10px]"></i>
             </button>
           </div>
         </div>
 
-        <!-- Layout Selector Tabs -->
-        <div class="flex items-center gap-1 p-1 rounded-2xl bg-zinc-950 border border-zinc-800 text-xs">
-          <button type="button" id="tabRemoteLayout1" class="flex-1 py-1.5 px-2 rounded-xl text-center text-[11px] font-medium transition text-white bg-zinc-800 shadow-sm">
-            Layout 1
-          </button>
-          <button type="button" id="tabRemoteLayout2" class="flex-1 py-1.5 px-2 rounded-xl text-center text-[11px] font-medium transition text-zinc-400 hover:text-white">
-            Layout 2 (Apple TV)
-          </button>
-          <button type="button" id="tabRemoteLayout3" class="flex-1 py-1.5 px-2 rounded-xl text-center text-[11px] font-medium transition text-zinc-400 hover:text-white">
-            Layout 3 (Pictured)
-          </button>
-        </div>
-
-        <!-- ================= LAYOUT 1: FULL MODULAR / ADJUSTABLE REMOTE ================= -->
-        <div id="layoutView1" class="space-y-4">
-          <!-- Customize Bar (shown only when Customize mode is toggled ON) -->
-          <div id="remoteCustomizeBar" class="hidden p-2.5 rounded-2xl bg-zinc-950 border border-zinc-800/90 space-y-2">
-            <div class="flex items-center justify-between text-xs">
-              <span class="text-zinc-400 text-[11px] font-medium flex items-center gap-1.5">
-                <i class="fa-solid fa-up-down-left-right text-[10px] text-blue-400"></i> Size:
-              </span>
-              <div class="flex items-center gap-1 bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 text-[10px]">
-                <button type="button" id="btnScaleCompact" class="px-2 py-0.5 rounded text-zinc-400 hover:text-white transition">Compact</button>
-                <button type="button" id="btnScaleNormal" class="px-2 py-0.5 rounded bg-zinc-800 text-white font-medium transition">Normal</button>
-                <button type="button" id="btnScaleLarge" class="px-2 py-0.5 rounded text-zinc-400 hover:text-white transition">Large</button>
-              </div>
-            </div>
-            <div class="flex items-center justify-between pt-1 border-t border-zinc-800/80 text-[10px]">
-              <span class="text-zinc-500">Reorder with ▲ ▼ or toggle 👁</span>
-              <button type="button" id="btnResetRemoteLayout" class="text-zinc-400 hover:text-zinc-200 underline">Reset Layout</button>
+        <!-- Center QR Code & Pairing -->
+        <div class="flex flex-col items-center justify-center py-1 space-y-3">
+          <div class="p-3 bg-white rounded-xl shadow-lg flex items-center justify-center relative min-w-[190px] min-h-[190px]">
+            <div id="remoteQrBox"></div>
+            <div id="remoteQrSpinner" class="absolute inset-0 flex items-center justify-center bg-white rounded-xl">
+              <i class="fa-solid fa-spinner fa-spin text-zinc-600 text-xl"></i>
             </div>
           </div>
 
-          <!-- Modular Adjustable Sections Container -->
-          <div id="remoteSectionsContainer" class="space-y-4">
-            <!-- Section: Android System Navigation -->
-            <div class="remote-section space-y-1.5" data-section="nav">
-              <div class="remote-sec-bar hidden items-center justify-between px-1 text-[10px] text-zinc-500 font-medium">
-                <span class="sec-label">System Navigation</span>
-                <div class="flex items-center gap-1">
-                  <button type="button" class="btn-sec-up w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Move Up"><i class="fa-solid fa-chevron-up text-[9px]"></i></button>
-                  <button type="button" class="btn-sec-down w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Move Down"><i class="fa-solid fa-chevron-down text-[9px]"></i></button>
-                  <button type="button" class="btn-sec-toggle w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Hide/Show"><i class="fa-solid fa-eye text-[9px]"></i></button>
-                </div>
-              </div>
-              <div class="remote-sec-content grid grid-cols-4 gap-1.5">
-                <button id="btnNavBack" type="button" title="Back" class="py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-400 hover:text-white active:bg-zinc-800 transition flex flex-col items-center gap-1">
-                  <i class="fa-solid fa-arrow-left text-xs"></i>
-                  <span class="text-[10px]">Back</span>
-                </button>
-                <button id="btnNavHome" type="button" title="Home" class="py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-400 hover:text-white active:bg-zinc-800 transition flex flex-col items-center gap-1">
-                  <i class="fa-solid fa-house text-xs"></i>
-                  <span class="text-[10px]">Home</span>
-                </button>
-                <button id="btnNavRecents" type="button" title="Recent Apps" class="py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-400 hover:text-white active:bg-zinc-800 transition flex flex-col items-center gap-1">
-                  <i class="fa-solid fa-bars text-xs"></i>
-                  <span class="text-[10px]">Recents</span>
-                </button>
-                <button id="btnNavNotif" type="button" title="Expand Notifications" class="py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-400 hover:text-white active:bg-zinc-800 transition flex flex-col items-center gap-1">
-                  <i class="fa-solid fa-bell text-xs"></i>
-                  <span class="text-[10px]">Notif</span>
-                </button>
-              </div>
-            </div>
+          <!-- Peer Status Indicator -->
+          <div id="remotePeerStatusCard" class="flex items-center justify-center gap-2 px-3 py-1 rounded-full bg-zinc-950 border border-zinc-800 text-xs font-mono">
+            <span id="remotePeerDot" class="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-pulse"></span>
+            <span id="remotePeerText" class="text-zinc-400 text-[11px]">Generating pairing link...</span>
+          </div>
 
-            <!-- Section: Media & Volume Controls -->
-            <div class="remote-section space-y-1.5" data-section="media">
-              <div class="remote-sec-bar hidden items-center justify-between px-1 text-[10px] text-zinc-500 font-medium">
-                <span class="sec-label">Media & Volume</span>
-                <div class="flex items-center gap-1">
-                  <button type="button" class="btn-sec-up w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Move Up"><i class="fa-solid fa-chevron-up text-[9px]"></i></button>
-                  <button type="button" class="btn-sec-down w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Move Down"><i class="fa-solid fa-chevron-down text-[9px]"></i></button>
-                  <button type="button" class="btn-sec-toggle w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Hide/Show"><i class="fa-solid fa-eye text-[9px]"></i></button>
-                </div>
-              </div>
-              <div class="remote-sec-content grid grid-cols-6 gap-1 p-1 rounded-2xl bg-zinc-950 border border-zinc-800">
-                <button id="btnMediaPrev" type="button" title="Previous Track" class="py-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-900 transition flex items-center justify-center">
-                  <i class="fa-solid fa-backward-step text-xs"></i>
-                </button>
-                <button id="btnMediaPlay" type="button" title="Play / Pause" class="py-2 rounded-xl text-white bg-zinc-900/90 hover:bg-zinc-800 transition flex items-center justify-center">
-                  <i class="fa-solid fa-play text-xs"></i>
-                </button>
-                <button id="btnMediaNext" type="button" title="Next Track" class="py-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-900 transition flex items-center justify-center">
-                  <i class="fa-solid fa-forward-step text-xs"></i>
-                </button>
-                <button id="btnMediaVolDown" type="button" title="Volume Down" class="py-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-900 transition flex items-center justify-center">
-                  <i class="fa-solid fa-volume-low text-xs"></i>
-                </button>
-                <button id="btnMediaVolUp" type="button" title="Volume Up" class="py-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-900 transition flex items-center justify-center">
-                  <i class="fa-solid fa-volume-high text-xs"></i>
-                </button>
-                <button id="btnMediaMute" type="button" title="Mute Volume" class="py-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-900 transition flex items-center justify-center">
-                  <i class="fa-solid fa-volume-xmark text-xs"></i>
-                </button>
-              </div>
-            </div>
-
-            <!-- Section: Quick Utilities -->
-            <div class="remote-section space-y-1.5" data-section="utils">
-              <div class="remote-sec-bar hidden items-center justify-between px-1 text-[10px] text-zinc-500 font-medium">
-                <span class="sec-label">Utilities</span>
-                <div class="flex items-center gap-1">
-                  <button type="button" class="btn-sec-up w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Move Up"><i class="fa-solid fa-chevron-up text-[9px]"></i></button>
-                  <button type="button" class="btn-sec-down w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Move Down"><i class="fa-solid fa-chevron-down text-[9px]"></i></button>
-                  <button type="button" class="btn-sec-toggle w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Hide/Show"><i class="fa-solid fa-eye text-[9px]"></i></button>
-                </div>
-              </div>
-              <div class="remote-sec-content grid grid-cols-2 gap-1.5 pt-0.5">
-                <button id="btnRemoteScreenshot" type="button" title="Capture Screenshot to Clipboard" class="py-2 px-3 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center gap-1.5">
-                  <i class="fa-solid fa-camera text-xs text-zinc-400"></i>
-                  <span>Screenshot</span>
-                </button>
-                <button id="btnRemoteRotate" type="button" title="Rotate Phone Screen" class="py-2 px-3 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center gap-1.5">
-                  <i class="fa-solid fa-rotate text-xs text-zinc-400"></i>
-                  <span>Rotate Screen</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Section: Quick Text Injector -->
-            <div class="remote-section space-y-1.5" data-section="text">
-              <div class="remote-sec-bar hidden items-center justify-between px-1 text-[10px] text-zinc-500 font-medium">
-                <span class="sec-label">Text Injector</span>
-                <div class="flex items-center gap-1">
-                  <button type="button" class="btn-sec-up w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Move Up"><i class="fa-solid fa-chevron-up text-[9px]"></i></button>
-                  <button type="button" class="btn-sec-down w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Move Down"><i class="fa-solid fa-chevron-down text-[9px]"></i></button>
-                  <button type="button" class="btn-sec-toggle w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Hide/Show"><i class="fa-solid fa-eye text-[9px]"></i></button>
-                </div>
-              </div>
-              <div class="remote-sec-content">
-                <form id="remoteTextForm" class="flex items-center gap-2">
-                  <input type="text" id="remoteTextInput" placeholder="Type text to send to phone..." class="flex-1 h-9 px-3.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition">
-                  <button type="submit" class="h-9 px-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition flex items-center gap-1.5 shadow-md shadow-blue-900/30">
-                    <i class="fa-solid fa-paper-plane text-[10px]"></i> Send
-                  </button>
-                </form>
-              </div>
-            </div>
-
-            <!-- Section: Circular D-Pad Navigator -->
-            <div class="remote-section space-y-1.5" data-section="dpad">
-              <div class="remote-sec-bar hidden items-center justify-between px-1 text-[10px] text-zinc-500 font-medium">
-                <span class="sec-label">Circular D-Pad</span>
-                <div class="flex items-center gap-1">
-                  <button type="button" class="btn-sec-up w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Move Up"><i class="fa-solid fa-chevron-up text-[9px]"></i></button>
-                  <button type="button" class="btn-sec-down w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Move Down"><i class="fa-solid fa-chevron-down text-[9px]"></i></button>
-                  <button type="button" class="btn-sec-toggle w-5 h-5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 flex items-center justify-center transition" title="Hide/Show"><i class="fa-solid fa-eye text-[9px]"></i></button>
-                </div>
-              </div>
-              <div class="remote-sec-content flex justify-center pt-2 pb-1">
-                <div class="remote-dpad-circle relative w-44 h-44 rounded-full bg-zinc-950 border border-zinc-800 shadow-inner flex items-center justify-center p-2 transition-all">
-                  <!-- Up -->
-                  <button id="btnDpadUp" type="button" title="Up" class="remote-dpad-tb absolute top-1.5 inset-x-14 h-10 rounded-t-full bg-zinc-900/80 hover:bg-zinc-800 active:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition">
-                    <i class="fa-solid fa-chevron-up text-xs"></i>
-                  </button>
-                  <!-- Down -->
-                  <button id="btnDpadDown" type="button" title="Down" class="remote-dpad-tb absolute bottom-1.5 inset-x-14 h-10 rounded-b-full bg-zinc-900/80 hover:bg-zinc-800 active:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition">
-                    <i class="fa-solid fa-chevron-down text-xs"></i>
-                  </button>
-                  <!-- Left -->
-                  <button id="btnDpadLeft" type="button" title="Left" class="remote-dpad-lr absolute left-1.5 inset-y-14 w-10 rounded-l-full bg-zinc-900/80 hover:bg-zinc-800 active:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition">
-                    <i class="fa-solid fa-chevron-left text-xs"></i>
-                  </button>
-                  <!-- Right -->
-                  <button id="btnDpadRight" type="button" title="Right" class="remote-dpad-lr absolute right-1.5 inset-y-14 w-10 rounded-r-full bg-zinc-900/80 hover:bg-zinc-800 active:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition">
-                    <i class="fa-solid fa-chevron-right text-xs"></i>
-                  </button>
-                  <!-- Center OK -->
-                  <button id="btnDpadOk" type="button" title="Select / OK" class="remote-dpad-ok w-16 h-16 rounded-full bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 text-white font-semibold text-xs transition shadow-md flex items-center justify-center z-10">
-                    OK
-                  </button>
-                </div>
-              </div>
-            </div>
+          <!-- Activity indicator when commands are received -->
+          <div id="remoteActivityPill" class="hidden text-[11px] font-mono text-zinc-300 flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-check text-[10px]"></i>
+            <span id="remoteActivityText">Command received</span>
           </div>
         </div>
 
-        <!-- ================= LAYOUT 2: APPLE TV CLASSIC TOUCHPAD REMOTE ================= -->
-        <div id="layoutView2" class="hidden flex justify-center py-2">
-          <div class="w-[230px] rounded-[36px] bg-gradient-to-b from-[#18181b] via-[#121215] to-[#09090b] border border-zinc-800/90 p-4 shadow-2xl flex flex-col items-center gap-3.5 select-none">
-            <!-- Apple TV Touch Surface (Swipe & Tap) -->
-            <div id="l2TouchSurface" class="w-full h-36 rounded-2xl bg-zinc-950/90 border border-zinc-800/80 shadow-inner flex flex-col items-center justify-between p-2.5 cursor-pointer active:bg-zinc-900 transition relative">
-              <i class="fa-solid fa-chevron-up text-[10px] text-zinc-600"></i>
-              <div class="flex items-center justify-between w-full px-1">
-                <i class="fa-solid fa-chevron-left text-[10px] text-zinc-600"></i>
-                <div class="flex flex-col items-center">
-                  <span class="text-[9px] font-semibold tracking-wider text-zinc-400">TOUCHPAD</span>
-                  <span class="text-[8px] text-zinc-600">SWIPE · TAP OK</span>
-                </div>
-                <i class="fa-solid fa-chevron-right text-[10px] text-zinc-600"></i>
-              </div>
-              <i class="fa-solid fa-chevron-down text-[10px] text-zinc-600"></i>
-            </div>
-
-            <!-- Apple TV Buttons -->
-            <div class="w-full space-y-2.5 pt-1">
-              <!-- Row 1: MENU (Back) & TV (Home) -->
-              <div class="grid grid-cols-2 gap-2.5">
-                <button id="btnL2Back" type="button" title="Back / Menu" class="h-11 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 active:scale-95 text-zinc-200 border border-zinc-800 text-[11px] font-semibold transition flex items-center justify-center shadow-md">
-                  MENU
-                </button>
-                <button id="btnL2Home" type="button" title="TV / Home" class="h-11 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 active:scale-95 text-zinc-200 border border-zinc-800 transition flex items-center justify-center shadow-md">
-                  <i class="fa-solid fa-tv text-xs"></i>
-                </button>
-              </div>
-
-              <!-- Row 2: Play/Pause & Mute -->
-              <div class="grid grid-cols-2 gap-2.5">
-                <button id="btnL2Play" type="button" title="Play / Pause" class="h-11 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 active:scale-95 text-zinc-200 border border-zinc-800 transition flex items-center justify-center shadow-md">
-                  <i class="fa-solid fa-play text-xs"></i>
-                </button>
-                <button id="btnL2Mute" type="button" title="Mute Volume" class="h-11 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 active:scale-95 text-zinc-200 border border-zinc-800 transition flex items-center justify-center shadow-md">
-                  <i class="fa-solid fa-volume-xmark text-xs"></i>
-                </button>
-              </div>
-
-              <!-- Row 3: Volume Down & Volume Up -->
-              <div class="grid grid-cols-2 gap-2.5">
-                <button id="btnL2VolDown" type="button" title="Volume Down" class="h-11 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 active:scale-95 text-zinc-200 border border-zinc-800 transition flex items-center justify-center shadow-md">
-                  <i class="fa-solid fa-minus text-xs"></i>
-                </button>
-                <button id="btnL2VolUp" type="button" title="Volume Up" class="h-11 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 active:scale-95 text-zinc-200 border border-zinc-800 transition flex items-center justify-center shadow-md">
-                  <i class="fa-solid fa-plus text-xs"></i>
-                </button>
-              </div>
-            </div>
-
-            <!-- Apple TV Lower Chin -->
-            <div class="h-6 w-full flex items-center justify-center">
-              <span class="w-8 h-1 rounded-full bg-zinc-800/80"></span>
-            </div>
+        <!-- Direct Pairing Link -->
+        <div class="pt-2 border-t border-zinc-800/80 space-y-2">
+          <div class="flex items-center justify-between text-[11px] text-zinc-400 px-0.5">
+            <span>Direct Pairing Link</span>
+            <button id="btnOpenRemoteTab" type="button" class="text-zinc-400 hover:text-zinc-200 transition flex items-center gap-1">
+              <span>Open Tab</span>
+              <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+            </button>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="text" id="remotePeerUrlInput" readonly class="flex-1 min-w-0 bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-zinc-300 select-all focus:outline-none" placeholder="Waiting for Peer ID...">
+            <button id="btnCopyRemoteUrl" type="button" class="h-7 px-3 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium transition flex items-center gap-1.5 shrink-0">
+              <i class="fa-solid fa-copy text-[10px]"></i> <span id="txtCopyRemoteUrl">Copy</span>
+            </button>
           </div>
         </div>
 
-        <!-- ================= LAYOUT 3: APPLE SIRI REMOTE (PICTURED SILVER ALUMINUM) ================= -->
-        <div id="layoutView3" class="hidden flex justify-center py-2">
-          <!-- Silver Aluminum Remote Body -->
-          <div class="w-[224px] rounded-[38px] p-4 shadow-2xl flex flex-col items-center gap-3 select-none transition-all" style="background: linear-gradient(180deg, #f4f4f5 0%, #e4e4e7 30%, #d4d4d8 70%, #b8bcc4 100%); border: 1px solid rgba(255, 255, 255, 0.7); box-shadow: inset 0 1px 1px rgba(255,255,255,0.9), 0 20px 30px -10px rgba(0,0,0,0.6);">
-            <!-- Top Section: Mic Hole and Power Button -->
-            <div class="w-full flex items-center justify-between px-1.5 pt-0.5">
-              <div class="w-7"></div>
-              <!-- Mic hole -->
-              <div class="w-2.5 h-1 rounded-full bg-zinc-700/80"></div>
-              <!-- Power Button -->
-              <button id="btnL3Power" type="button" title="Power / Lock Phone" class="w-7 h-7 rounded-full bg-zinc-200/90 hover:bg-zinc-100 active:scale-95 border border-zinc-400/70 shadow-sm text-zinc-800 flex items-center justify-center transition">
-                <i class="fa-solid fa-power-off text-[10px]"></i>
-              </button>
-            </div>
-
-            <!-- Circular Clickpad -->
-            <div class="relative w-36 h-36 rounded-full bg-[#18181b] shadow-[inset_0_2px_4px_rgba(0,0,0,0.7),0_3px_6px_rgba(0,0,0,0.35)] flex items-center justify-center p-1.5 mt-1">
-              <!-- Up Button with white dot -->
-              <button id="btnL3DpadUp" type="button" title="Up" class="absolute top-1 inset-x-10 h-9 rounded-t-full hover:bg-zinc-800 active:bg-zinc-700 flex items-center justify-center transition">
-                <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
-              </button>
-              <!-- Down Button with white dot -->
-              <button id="btnL3DpadDown" type="button" title="Down" class="absolute bottom-1 inset-x-10 h-9 rounded-b-full hover:bg-zinc-800 active:bg-zinc-700 flex items-center justify-center transition">
-                <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
-              </button>
-              <!-- Left Button with white dot -->
-              <button id="btnL3DpadLeft" type="button" title="Left" class="absolute left-1 inset-y-10 w-9 rounded-l-full hover:bg-zinc-800 active:bg-zinc-700 flex items-center justify-center transition">
-                <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
-              </button>
-              <!-- Right Button with white dot -->
-              <button id="btnL3DpadRight" type="button" title="Right" class="absolute right-1 inset-y-10 w-9 rounded-r-full hover:bg-zinc-800 active:bg-zinc-700 flex items-center justify-center transition">
-                <span class="w-1.5 h-1.5 rounded-full bg-zinc-400"></span>
-              </button>
-              <!-- Center OK Button -->
-              <button id="btnL3DpadOk" type="button" title="Select / OK" class="w-16 h-16 rounded-full bg-[#27272a] hover:bg-[#3f3f46] active:bg-[#18181b] shadow-[inset_0_1px_2px_rgba(255,255,255,0.1),0_2px_4px_rgba(0,0,0,0.4)] z-10 transition flex items-center justify-center cursor-pointer">
-              </button>
-            </div>
-
-            <!-- Lower Buttons: Left Column (Back, Play/Pause, Mute) & Right Column (TV/Home, Volume Rocker) -->
-            <div class="w-full flex items-start justify-center gap-3.5 pt-2">
-              <!-- Left Column: 3 round buttons -->
-              <div class="flex flex-col gap-2.5">
-                <!-- Back Button -->
-                <button id="btnL3Back" type="button" title="Back" class="w-11 h-11 rounded-full bg-[#18181b] hover:bg-[#27272a] active:scale-95 text-zinc-100 flex items-center justify-center transition shadow-md border border-black/30">
-                  <i class="fa-solid fa-chevron-left text-xs"></i>
-                </button>
-                <!-- Play/Pause Button -->
-                <button id="btnL3Play" type="button" title="Play / Pause" class="w-11 h-11 rounded-full bg-[#18181b] hover:bg-[#27272a] active:scale-95 text-zinc-100 flex items-center justify-center transition shadow-md border border-black/30">
-                  <span class="flex items-center text-[9px]"><i class="fa-solid fa-play mr-0.5"></i><i class="fa-solid fa-pause"></i></span>
-                </button>
-                <!-- Mute Button -->
-                <button id="btnL3Mute" type="button" title="Mute Volume" class="w-11 h-11 rounded-full bg-[#18181b] hover:bg-[#27272a] active:scale-95 text-zinc-100 flex items-center justify-center transition shadow-md border border-black/30">
-                  <i class="fa-solid fa-volume-xmark text-xs"></i>
-                </button>
-              </div>
-
-              <!-- Right Column: TV button + Tall Volume Rocker -->
-              <div class="flex flex-col gap-2.5">
-                <!-- TV / Home Button -->
-                <button id="btnL3Home" type="button" title="TV / Home" class="w-11 h-11 rounded-full bg-[#18181b] hover:bg-[#27272a] active:scale-95 text-zinc-100 flex items-center justify-center transition shadow-md border border-black/30">
-                  <i class="fa-solid fa-tv text-xs"></i>
-                </button>
-                <!-- Tall Volume Rocker -->
-                <div class="w-11 h-[98px] rounded-full bg-[#18181b] shadow-md border border-black/30 flex flex-col justify-between overflow-hidden p-0.5">
-                  <button id="btnL3VolUp" type="button" title="Volume Up" class="w-full h-11 rounded-t-full hover:bg-[#27272a] active:bg-[#3f3f46] text-zinc-100 flex items-center justify-center transition">
-                    <i class="fa-solid fa-plus text-xs"></i>
-                  </button>
-                  <button id="btnL3VolDown" type="button" title="Volume Down" class="w-full h-11 rounded-b-full hover:bg-[#27272a] active:bg-[#3f3f46] text-zinc-100 flex items-center justify-center transition">
-                    <i class="fa-solid fa-minus text-xs"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Lower Aluminum Chin -->
-            <div class="h-20 w-full"></div>
+        <!-- Local / file:// warning and host IP helper -->
+        <div id="remoteLocalWarning" class="hidden p-3 rounded-xl bg-zinc-950 border border-zinc-800 text-[11px] space-y-2">
+          <div class="flex items-center gap-1.5 font-medium text-zinc-300">
+            <i class="fa-solid fa-circle-info text-xs"></i>
+            <span>Local file or localhost detected</span>
           </div>
+          <p class="text-zinc-400 text-[10px] leading-relaxed">
+            Phones cannot access localhost via QR code. Enter your computer's LAN IP (e.g. 192.168.1.10:8000):
+          </p>
+          <div class="flex items-center gap-1.5">
+            <input type="text" id="inputCustomHost" placeholder="192.168.1.10:8000" class="flex-1 min-w-0 bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1 text-[11px] font-mono text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-700">
+            <button type="button" id="btnApplyCustomHost" class="h-6 px-2.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[10px] font-medium transition flex items-center gap-1 shrink-0">
+              <i class="fa-solid fa-rotate text-[9px]"></i> <span>Update</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Quick instructions -->
+        <div class="rounded-xl bg-zinc-950/60 border border-zinc-800/60 p-3 space-y-1.5 text-[11px]">
+          <span class="font-medium text-zinc-300 block text-xs">Instructions</span>
+          <ul class="text-zinc-400 space-y-1 leading-relaxed list-disc list-inside text-[10px]">
+            <li>Scan QR with your phone camera.</li>
+            <li>Connects directly via WebRTC peer-to-peer (zero video bandwidth).</li>
+            <li>Control TV, media playback, volume, and text input from your phone.</li>
+          </ul>
         </div>
       </div>
     </div>
   </main>
 
-  <div id="screenTools" class="hidden fixed left-4 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2">
-    <button id="btnToolRemote" type="button" title="Toggle Remote Control Mode" class="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-900/90 text-zinc-300 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
-      <i class="fa-solid fa-gamepad text-sm"></i>
+  <!-- SCREEN FLOATING DOCK -->
+  <div id="screenTools" class="hidden fixed left-4 top-1/2 -translate-y-1/2 z-20 flex flex-col p-1.5 rounded-2xl bg-zinc-900/80 backdrop-blur-xl border border-zinc-800/80 shadow-2xl shadow-black/50 gap-1 transition-opacity duration-200">
+    <button id="btnToolRemote" type="button" title="Toggle Remote" class="w-8 h-8 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center text-xs">
+      <i class="fa-solid fa-qrcode"></i>
     </button>
-    <button id="btnFit" type="button" title="Fit to screen" class="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-900/90 text-zinc-300 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
-      <i class="fa-solid fa-up-right-and-down-left-from-center text-sm"></i>
+    <button id="btnFit" type="button" title="Fit to screen" class="w-8 h-8 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center text-xs">
+      <i class="fa-solid fa-up-right-and-down-left-from-center"></i>
     </button>
-    <button id="btnScreenshot" type="button" title="Copy screenshot to computer & phone clipboard" class="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-900/90 text-zinc-300 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
-      <i class="fa-solid fa-camera text-sm"></i>
+    <button id="btnScreenshot" type="button" title="Take screenshot" class="w-8 h-8 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center text-xs">
+      <i class="fa-solid fa-camera"></i>
     </button>
-    <button id="btnZoomIn" type="button" title="Zoom in (or Ctrl + Drag / Trackpad Pinch)" class="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-900/90 text-zinc-300 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
-      <i class="fa-solid fa-magnifying-glass-plus text-sm"></i>
+    <div class="w-full h-px bg-zinc-800/80 my-0.5"></div>
+    <button id="btnZoomIn" type="button" title="Zoom in" class="w-8 h-8 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center text-xs">
+      <i class="fa-solid fa-magnifying-glass-plus"></i>
     </button>
-    <button id="btnZoomOut" type="button" title="Zoom out (or Ctrl + Drag / Trackpad Pinch)" class="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-900/90 text-zinc-300 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
-      <i class="fa-solid fa-magnifying-glass-minus text-sm"></i>
+    <button id="btnZoomOut" type="button" title="Zoom out" class="w-8 h-8 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center text-xs">
+      <i class="fa-solid fa-magnifying-glass-minus"></i>
     </button>
-    <button id="btnVolUp" type="button" title="Volume up" class="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-900/90 text-zinc-300 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
-      <i class="fa-solid fa-plus text-sm"></i>
+    <div class="w-full h-px bg-zinc-800/80 my-0.5"></div>
+    <button id="btnVolUp" type="button" title="Volume up" class="w-8 h-8 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center text-xs">
+      <i class="fa-solid fa-plus"></i>
     </button>
-    <button id="btnVolDown" type="button" title="Volume down" class="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-900/90 text-zinc-300 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
-      <i class="fa-solid fa-minus text-sm"></i>
+    <button id="btnVolDown" type="button" title="Volume down" class="w-8 h-8 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center text-xs">
+      <i class="fa-solid fa-minus"></i>
     </button>
-    <button id="btnSyncClipboard" type="button" title="Sync clipboard to phone" class="w-10 h-10 rounded-full border border-zinc-800 bg-zinc-900/90 text-zinc-300 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
-      <i class="fa-solid fa-clipboard text-sm"></i>
+    <div class="w-full h-px bg-zinc-800/80 my-0.5"></div>
+    <button id="btnSyncClipboard" type="button" title="Sync clipboard to phone" class="w-8 h-8 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center text-xs">
+      <i class="fa-solid fa-clipboard"></i>
     </button>
   </div>
 
   <!-- POPOUT WI-FI DOWNLOAD HELPER GUIDELINE -->
-  <div id="downloadPanel" class="popout closed fixed top-14 right-4 z-40 w-[380px] max-w-[calc(100vw-2rem)] rounded-2xl bg-zinc-900/95 backdrop-blur border border-zinc-800 shadow-2xl shadow-black p-4 space-y-3.5">
+  <div id="downloadPanel" class="popout closed fixed top-14 right-4 z-40 w-[380px] max-w-[calc(100vw-2rem)] rounded-2xl bg-zinc-900/95 backdrop-blur-xl border border-zinc-800/80 shadow-2xl p-4 space-y-3.5">
     <div class="flex items-center justify-between px-1">
       <div class="flex items-center gap-2">
-        <div class="w-6 h-6 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center text-xs">
-          <i class="fa-solid fa-wifi"></i>
-        </div>
+        <i class="fa-solid fa-wifi text-xs text-zinc-400"></i>
         <span class="text-xs font-semibold text-zinc-200">Wi-Fi Bridge Helper</span>
       </div>
-      <button id="btnCloseDownload" class="w-6 h-6 rounded-full text-zinc-500 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
+      <button id="btnCloseDownload" class="w-6 h-6 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
         <i class="fa-solid fa-xmark text-xs"></i>
       </button>
     </div>
-    <!-- macOS Section (1-Click Terminal Command) -->
-    <div class="rounded-xl bg-zinc-950 border border-zinc-800 p-3 space-y-2">
+
+    <!-- macOS Section -->
+    <div class="rounded-xl bg-zinc-950 border border-zinc-800/80 p-3 space-y-2">
       <div class="flex items-center justify-between">
-        <span class="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
-          <i class="fa-brands fa-apple text-sm"></i> macOS
+        <span class="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
+          <i class="fa-brands fa-apple text-xs"></i> macOS
         </span>
         <button id="btnCopyMacCmd" type="button" class="text-[10px] text-zinc-300 hover:text-white px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-700 hover:border-zinc-500 transition flex items-center gap-1">
           <i class="fa-solid fa-copy text-[9px]"></i> <span id="txtCopyMacCmd">Copy</span>
         </button>
       </div>
-      <div class="font-mono text-[10px] text-zinc-300 bg-black/60 p-2 rounded-lg border border-zinc-800/80 break-all select-all">
+      <div class="font-mono text-[10px] text-zinc-300 bg-zinc-900/60 p-2 rounded-lg border border-zinc-800 break-all select-all">
         <code id="macInstallCmd">curl -fsSL https://webscrcpy.vercel.app/install-mac.sh | bash</code>
       </div>
       <p class="text-[10px] text-zinc-500 leading-normal">
-        Open Terminal, paste, and press Enter. Automatically starts in the background without Gatekeeper warnings!
+        Run in Terminal. Automatically sets up and starts the bridge in the background.
       </p>
     </div>
 
-    <!-- Windows Section (1-Click PowerShell Command) -->
-    <div class="rounded-xl bg-zinc-950 border border-zinc-800 p-3 space-y-2">
+    <!-- Windows Section -->
+    <div class="rounded-xl bg-zinc-950 border border-zinc-800/80 p-3 space-y-2">
       <div class="flex items-center justify-between">
-        <span class="text-xs font-semibold text-blue-400 flex items-center gap-1.5">
-          <i class="fa-brands fa-windows text-sm"></i> Windows
+        <span class="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
+          <i class="fa-brands fa-windows text-xs"></i> Windows
         </span>
         <button id="btnCopyWinCmd" type="button" class="text-[10px] text-zinc-300 hover:text-white px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-700 hover:border-zinc-500 transition flex items-center gap-1">
           <i class="fa-solid fa-copy text-[9px]"></i> <span id="txtCopyWinCmd">Copy</span>
         </button>
       </div>
-      <div class="font-mono text-[10px] text-zinc-300 bg-black/60 p-2 rounded-lg border border-zinc-800/80 break-all select-all">
+      <div class="font-mono text-[10px] text-zinc-300 bg-zinc-900/60 p-2 rounded-lg border border-zinc-800 break-all select-all">
         <code id="winInstallCmd">powershell -ExecutionPolicy Bypass -c "irm https://webscrcpy.vercel.app/install-windows.ps1 | iex"</code>
       </div>
       <p class="text-[10px] text-zinc-500 leading-normal">
-        Works in PowerShell, Command Prompt (CMD), or Windows Terminal. Automatically runs in background!
+        Run in PowerShell or Windows Terminal. Starts the bridge automatically.
       </p>
     </div>
 
-    <div class="rounded-xl bg-zinc-950/70 border border-zinc-800/80 p-3 space-y-1.5 text-[11px]">
-      <span class="font-medium text-zinc-300 block">How it works:</span>
-      <ul class="text-zinc-400 space-y-1 leading-relaxed list-disc list-inside">
-        <li><strong class="text-zinc-300">Mac:</strong> Paste command into Terminal (runs silently in background).</li>
-        <li><strong class="text-zinc-300">Windows:</strong> Paste command into PowerShell (runs silently in background).</li>
-        <li>Return to WebScrcpy and click your device under the <span class="text-zinc-200">Wi-Fi</span> section!</li>
-      </ul>
-      <div class="pt-2 border-t border-zinc-800/80 flex items-center justify-between text-[10px]">
-        <span class="text-zinc-500">Manual ZIP downloads:</span>
-        <div class="flex items-center gap-2">
-          <a href="./webscrcpy-windows.zip" download="webscrcpy-windows.zip" class="text-blue-400 hover:text-blue-300 transition flex items-center gap-1">
-            <i class="fa-brands fa-windows text-[9px]"></i> Windows .zip
-          </a>
-          <span class="text-zinc-700">|</span>
-          <a href="./webscrcpy-mac.zip" download="webscrcpy-mac.zip" class="text-emerald-400 hover:text-emerald-300 transition flex items-center gap-1">
-            <i class="fa-brands fa-apple text-[9px]"></i> Mac .zip
-          </a>
-        </div>
+    <div class="rounded-xl bg-zinc-950/60 border border-zinc-800/60 p-3 space-y-2 text-[11px]">
+      <span class="font-medium text-zinc-300 block text-xs">Manual Downloads</span>
+      <div class="flex items-center gap-3 text-[10px]">
+        <a href="./webscrcpy-windows.zip" download="webscrcpy-windows.zip" class="text-zinc-400 hover:text-zinc-200 transition flex items-center gap-1">
+          <i class="fa-brands fa-windows text-[9px]"></i> Windows (.zip)
+        </a>
+        <span class="text-zinc-700">|</span>
+        <a href="./webscrcpy-mac.zip" download="webscrcpy-mac.zip" class="text-zinc-400 hover:text-zinc-200 transition flex items-center gap-1">
+          <i class="fa-brands fa-apple text-[9px]"></i> macOS (.zip)
+        </a>
       </div>
     </div>
   </div>
 
   <!-- POPOUT CHANGELOG -->
-  <div id="changelogPanel" class="popout closed fixed top-14 right-4 z-40 w-[360px] max-w-[calc(100vw-2rem)] rounded-2xl bg-zinc-900/95 backdrop-blur border border-zinc-800 shadow-2xl shadow-black p-4 space-y-3">
+  <div id="changelogPanel" class="popout closed fixed top-14 right-4 z-40 w-[360px] max-w-[calc(100vw-2rem)] rounded-2xl bg-zinc-900/95 backdrop-blur-xl border border-zinc-800/80 shadow-2xl p-4 space-y-3">
     <div class="flex items-center justify-between px-1">
       <div class="flex items-center gap-2">
-        <div class="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs">
-          <i class="fa-solid fa-bullhorn"></i>
-        </div>
+        <i class="fa-solid fa-bell text-xs text-zinc-400"></i>
         <span class="text-xs font-semibold text-zinc-200">Changelog</span>
       </div>
-      <button id="btnCloseChangelog" class="w-6 h-6 rounded-full text-zinc-500 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
+      <button id="btnCloseChangelog" class="w-6 h-6 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
         <i class="fa-solid fa-xmark text-xs"></i>
       </button>
     </div>
 
     <div class="max-h-80 overflow-y-auto term-scroll space-y-3 pr-1">
       <!-- v1.3.0 -->
-      <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800 space-y-1.5">
+      <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800/80 space-y-1.5">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-semibold text-emerald-400">v1.3.0</span>
+          <span class="text-xs font-medium text-zinc-200">v1.3.0</span>
           <span class="text-[10px] text-zinc-500">05-11-2026</span>
         </div>
-        <ul class="text-[11px] text-zinc-300 space-y-1 list-disc list-inside">
-          <li><span class="font-medium text-zinc-200">Remote Control Mode:</span> Dedicated TV & Android wireless remote control section over Wi-Fi/USB with virtual gesture touchpad, circular D-pad, Android system keys (Home, Back, Recents, Notifications), media controls, screen-off battery saver, and direct text injector with 0% video bandwidth.</li>
-          <li><span class="font-medium text-zinc-200">Drag & Drop File Push:</span> Drag and drop files from PC/Mac onto either the main screen or Picture-in-Picture window (including when minimized) to transfer directly to phone's /sdcard/Download/ (no auto-install).</li>
-          <li><span class="font-medium text-zinc-200">1-Click Screenshot:</span> Capture phone screen directly to computer & phone clipboard without saving files to disk.</li>
-          <li><span class="font-medium text-zinc-200">Quick Performance Profiles:</span> 1-click presets in Settings for Gaming (720p · 4M), Balanced (1080p · 8M), and Quality (1080p · 16M).</li>
+        <ul class="text-[11px] text-zinc-400 space-y-1 list-disc list-inside">
+          <li><span class="font-medium text-zinc-300">Remote Control Mode:</span> Dedicated TV & Android wireless remote control over Wi-Fi/USB with virtual controls, system keys, and text injector.</li>
+          <li><span class="font-medium text-zinc-300">Drag & Drop File Push:</span> Drag files into the window to transfer directly to /sdcard/Download/.</li>
+          <li><span class="font-medium text-zinc-300">Screenshot:</span> Capture screen directly to clipboard.</li>
+          <li><span class="font-medium text-zinc-300">Performance Profiles:</span> Presets for Gaming, Balanced, and Quality.</li>
         </ul>
       </div>
 
       <!-- v1.2.0 -->
-      <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800 space-y-1.5">
+      <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800/80 space-y-1.5">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-semibold text-zinc-300">v1.2.0</span>
+          <span class="text-xs font-medium text-zinc-300">v1.2.0</span>
           <span class="text-[10px] text-zinc-500">30-10-2026</span>
         </div>
         <ul class="text-[11px] text-zinc-400 space-y-1 list-disc list-inside">
-          <li><span class="text-zinc-300 font-medium">Pinch-to-Zoom:</span> Multi-touch zoom support for mobile games (Clash of Clans, and etc) *special request for Azzuri and Matket* via trackpad pinch, Ctrl+drag, or sidebar zoom buttons.</li>
-          <li><span class="text-zinc-300 font-medium">Device Management:</span> Easily remove / forget saved Wi-Fi and paired USB devices.</li>
-          <li><span class="text-zinc-300 font-medium">Wi-Fi Helper:</span> 1-click script packages for Mac & Windows wireless connections.</li>
-          <li><span class="text-zinc-300 font-medium">Shared Clipboard:</span> Sync your PC/Mac clipboard directly to your phone.</li>
-          <li><span class="text-zinc-300 font-medium">Manual IP:</span> Connect directly using your phone local IP address.</li>
-          <li><span class="text-zinc-300 font-medium">Auto SSL (WSS):</span> Automatically generated local TLS certificates for HTTPS support.</li>
+          <li><span class="text-zinc-300 font-medium">Pinch-to-Zoom:</span> Multi-touch zoom support via trackpad pinch, Ctrl+drag, or zoom buttons.</li>
+          <li><span class="text-zinc-300 font-medium">Device Management:</span> Remove or forget saved Wi-Fi and paired USB devices.</li>
+          <li><span class="text-zinc-300 font-medium">Wi-Fi Helper:</span> 1-click script packages for Mac and Windows wireless connections.</li>
+          <li><span class="text-zinc-300 font-medium">Shared Clipboard:</span> Sync clipboard directly with connected device.</li>
         </ul>
       </div>
 
       <!-- v1.1.0 -->
-      <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800 space-y-1.5">
+      <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800/80 space-y-1.5">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-semibold text-zinc-300">v1.1.0</span>
+          <span class="text-xs font-medium text-zinc-400">v1.1.0</span>
           <span class="text-[10px] text-zinc-500">28-10-2026</span>
         </div>
         <ul class="text-[11px] text-zinc-400 space-y-1 list-disc list-inside">
           <li><span class="text-zinc-300 font-medium">Samsung DeX:</span> Desktop mode support for Samsung Galaxy devices.</li>
           <li><span class="text-zinc-300 font-medium">Picture-in-Picture:</span> Floating resizable PiP window (Ctrl+A).</li>
-          <li><span class="text-zinc-300 font-medium">Screen Controls:</span> Volume controls and fit-to-screen adjustments.</li>
         </ul>
       </div>
 
       <!-- v1.0.0 -->
-      <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800 space-y-1.5">
+      <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800/80 space-y-1.5">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-semibold text-zinc-400">v1.0.0</span>
-          <span class="text-[10px] text-zinc-500">20-10-2026</span>
+          <span class="text-xs font-medium text-zinc-500">v1.0.0</span>
+          <span class="text-[10px] text-zinc-600">20-10-2026</span>
         </div>
         <ul class="text-[11px] text-zinc-500 space-y-1 list-disc list-inside">
           <li>Initial release of WebScrcpy (WebUSB, low-latency 60 FPS WebCodecs).</li>
@@ -747,63 +443,61 @@
   </div>
 
   <!-- POPOUT DEVICE PICKER -->
-  <div id="devicePanel" class="popout closed fixed top-14 right-4 z-40 w-[300px] max-w-[calc(100vw-2rem)] rounded-2xl bg-zinc-900/95 backdrop-blur border border-zinc-800 shadow-2xl shadow-black p-3 space-y-2">
+  <div id="devicePanel" class="popout closed fixed top-14 right-4 z-40 w-[300px] max-w-[calc(100vw-2rem)] rounded-2xl bg-zinc-900/95 backdrop-blur-xl border border-zinc-800/80 shadow-2xl p-3 space-y-2">
     <div class="flex items-center justify-between px-1">
-      <span class="text-xs font-medium text-zinc-300">Select phone</span>
-      <button id="btnCloseDevices" class="w-6 h-6 rounded-full text-zinc-500 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
+      <span class="text-xs font-semibold text-zinc-200">Select Device</span>
+      <button id="btnCloseDevices" class="w-6 h-6 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
         <i class="fa-solid fa-xmark text-xs"></i>
       </button>
     </div>
     <div id="deviceList" class="space-y-1"></div>
-    <button id="btnPairDevice" class="w-full h-9 rounded-xl border border-dashed border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 text-xs transition flex items-center justify-center gap-2">
-      <i class="fa-solid fa-plus text-[10px]"></i> Pair a new phone
+    <button id="btnPairDevice" class="w-full h-8 rounded-xl border border-dashed border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 text-xs transition flex items-center justify-center gap-2">
+      <i class="fa-solid fa-plus text-[10px]"></i> Pair new device
     </button>
-    <div class="space-y-1.5 border-t border-zinc-800 pt-2">
+    <div class="space-y-1.5 border-t border-zinc-800/80 pt-2">
       <div class="flex items-center justify-between px-1">
-        <span class="text-[11px] text-zinc-500 font-medium">Wi-Fi</span>
-        <div class="flex items-center gap-2">
-          <button id="btnToggleManualIp" type="button" class="text-[10px] text-zinc-400 hover:text-zinc-200 transition">+ IP Manual</button>
-        </div>
+        <span class="text-[11px] text-zinc-400 font-medium">Wi-Fi Devices</span>
+        <button id="btnToggleManualIp" type="button" class="text-[10px] text-zinc-400 hover:text-zinc-200 transition">+ Manual IP</button>
       </div>
       <form id="formManualIp" class="hidden flex gap-1.5 px-1 py-1">
         <input type="text" id="inputManualIp" placeholder="192.168.1.10" class="flex-1 min-w-0 bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1 text-xs text-zinc-200 font-mono placeholder:text-zinc-700 focus:outline-none focus:border-zinc-600">
-        <button type="submit" class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs">Connect</button>
+        <button type="submit" class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium">Connect</button>
       </form>
       <div id="wifiList" class="space-y-1"></div>
     </div>
   </div>
 
   <!-- POPOUT SETTINGS PANEL -->
-  <div id="settingsPanel" class="popout closed fixed top-14 right-4 z-40 w-[340px] max-w-[calc(100vw-2rem)] rounded-2xl bg-zinc-900/95 backdrop-blur border border-zinc-800 shadow-2xl shadow-black p-4 space-y-4">
+  <div id="settingsPanel" class="popout closed fixed top-14 right-4 z-40 w-[340px] max-w-[calc(100vw-2rem)] rounded-2xl bg-zinc-900/95 backdrop-blur-xl border border-zinc-800/80 shadow-2xl p-4 space-y-4">
     <div class="flex items-center justify-between">
-      <span class="text-xs font-medium text-zinc-300">Settings</span>
-      <button id="btnCloseSettings" class="w-6 h-6 rounded-full text-zinc-500 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
+      <span class="text-xs font-semibold text-zinc-200">Settings</span>
+      <button id="btnCloseSettings" class="w-6 h-6 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
         <i class="fa-solid fa-xmark text-xs"></i>
       </button>
     </div>
 
     <div id="dexModeRow" class="hidden space-y-1.5">
-      <span class="text-[11px] text-zinc-500">Screen</span>
-      <div class="grid grid-cols-2 gap-1 p-1 rounded-xl bg-zinc-950 text-xs">
-        <button type="button" id="setMirror">Mirror</button>
-        <button type="button" id="setDex">DeX</button>
+      <span class="text-[11px] font-medium text-zinc-400">Display Mode</span>
+      <div class="grid grid-cols-2 gap-1 p-1 rounded-xl bg-zinc-950 border border-zinc-800/60 text-xs">
+        <button type="button" id="setMirror" class="py-1.5 rounded-lg text-zinc-400 hover:text-white transition">Mirror</button>
+        <button type="button" id="setDex" class="py-1.5 rounded-lg text-zinc-400 hover:text-white transition">DeX</button>
       </div>
     </div>
 
     <!-- Quick Performance Profiles -->
     <div class="space-y-1.5">
       <div class="flex items-center justify-between text-[11px]">
-        <span class="text-zinc-500">Quick Profile</span>
-        <span id="txtActiveProfile" class="text-emerald-400 font-medium">Balanced</span>
+        <span class="text-zinc-400 font-medium">Quality Profile</span>
+        <span id="txtActiveProfile" class="text-zinc-300 font-mono text-[10px]">Balanced</span>
       </div>
-      <div class="grid grid-cols-3 gap-1 p-1 rounded-xl bg-zinc-950 text-xs text-center">
+      <div class="grid grid-cols-3 gap-1 p-1 rounded-xl bg-zinc-950 border border-zinc-800/60 text-xs text-center">
         <button type="button" id="profGaming" class="py-1.5 px-1 rounded-lg text-zinc-400 hover:text-white transition flex flex-col items-center gap-0.5">
           <span class="font-medium text-[11px]">Gaming</span>
           <span class="text-[9px] text-zinc-500 font-mono">720p · 4M</span>
         </button>
         <button type="button" id="profBalanced" class="py-1.5 px-1 rounded-lg bg-zinc-800 text-white font-medium transition flex flex-col items-center gap-0.5">
           <span class="font-medium text-[11px]">Balanced</span>
-          <span class="text-[9px] text-zinc-400 font-mono">1080p · 8M</span>
+          <span class="text-[9px] text-zinc-300 font-mono">1080p · 8M</span>
         </button>
         <button type="button" id="profQuality" class="py-1.5 px-1 rounded-lg text-zinc-400 hover:text-white transition flex flex-col items-center gap-0.5">
           <span class="font-medium text-[11px]">Quality</span>
@@ -813,50 +507,50 @@
     </div>
 
     <div class="space-y-1.5">
-      <span class="text-[11px] text-zinc-500">Resolution</span>
-      <div class="grid grid-cols-3 gap-1 p-1 rounded-xl bg-zinc-950 text-xs">
-        <button onclick="setResolution('1080p')" id="res1080">1080p</button>
-        <button onclick="setResolution('720p')" id="res720">720p</button>
-        <button onclick="setResolution('480p')" id="res480">480p</button>
+      <span class="text-[11px] font-medium text-zinc-400">Resolution</span>
+      <div class="grid grid-cols-3 gap-1 p-1 rounded-xl bg-zinc-950 border border-zinc-800/60 text-xs">
+        <button onclick="setResolution('1080p')" id="res1080" class="py-1.5 rounded-lg text-zinc-400 hover:text-white transition">1080p</button>
+        <button onclick="setResolution('720p')" id="res720" class="py-1.5 rounded-lg text-zinc-400 hover:text-white transition">720p</button>
+        <button onclick="setResolution('480p')" id="res480" class="py-1.5 rounded-lg text-zinc-400 hover:text-white transition">480p</button>
       </div>
     </div>
 
     <div class="space-y-1.5">
       <div class="flex justify-between text-[11px]">
-        <span class="text-zinc-500">Bitrate</span>
+        <span class="text-zinc-400 font-medium">Bitrate</span>
         <span id="txtBitrate" class="font-mono text-zinc-300">8 Mbps</span>
       </div>
-      <input type="range" id="rangeBitrate" min="2" max="16" value="8" step="2" class="w-full h-1 cursor-pointer">
+      <input type="range" id="rangeBitrate" min="2" max="16" value="8" step="2" class="w-full h-1 cursor-pointer bg-zinc-800 rounded-lg appearance-none">
     </div>
 
     <div class="space-y-1.5">
       <div class="flex justify-between text-[11px]">
-        <span class="text-zinc-500">Max frame rate</span>
+        <span class="text-zinc-400 font-medium">Max Frame Rate</span>
         <span id="txtFps" class="font-mono text-zinc-300">60 FPS</span>
       </div>
-      <input type="range" id="rangeFps" min="15" max="60" value="60" step="15" class="w-full h-1 cursor-pointer">
+      <input type="range" id="rangeFps" min="15" max="60" value="60" step="15" class="w-full h-1 cursor-pointer bg-zinc-800 rounded-lg appearance-none">
     </div>
 
-    <div class="space-y-2 text-xs text-zinc-300">
+    <div class="space-y-2 text-xs text-zinc-300 pt-1">
       <label class="flex items-center justify-between cursor-pointer">
-        <span>Stay awake</span>
-        <input type="checkbox" id="chkStayAwake" checked class="accent-zinc-200">
+        <span class="text-zinc-400">Stay awake</span>
+        <input type="checkbox" id="chkStayAwake" checked class="accent-zinc-300 rounded">
       </label>
       <label class="flex items-center justify-between cursor-pointer">
-        <span>Turn off phone screen</span>
-        <input type="checkbox" id="chkTurnOffScreen" checked class="accent-zinc-200">
+        <span class="text-zinc-400">Turn off phone screen</span>
+        <input type="checkbox" id="chkTurnOffScreen" checked class="accent-zinc-300 rounded">
       </label>
     </div>
 
-    <div class="border-t border-zinc-800 pt-3 space-y-2">
+    <div class="border-t border-zinc-800/80 pt-3 space-y-2">
       <div class="flex items-center justify-between">
-        <span class="text-[11px] text-zinc-500">ADB shell</span>
-        <button id="btnClearTerm" class="text-[11px] text-zinc-600 hover:text-zinc-300">Clear</button>
+        <span class="text-[11px] font-medium text-zinc-400">ADB Terminal</span>
+        <button id="btnClearTerm" class="text-[11px] text-zinc-500 hover:text-zinc-300 transition">Clear</button>
       </div>
-      <div id="termOutput" class="h-40 overflow-y-auto term-scroll font-mono text-[11px] leading-relaxed space-y-0.5 rounded-lg bg-zinc-950 p-2"></div>
+      <div id="termOutput" class="h-36 overflow-y-auto term-scroll font-mono text-[11px] leading-relaxed space-y-0.5 rounded-xl bg-zinc-950 border border-zinc-800/80 p-2.5"></div>
       <form id="termForm" class="flex gap-2">
         <input type="text" id="termInput" placeholder="getprop ro.product.model" class="flex-1 min-w-0 bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-[11px] text-zinc-200 font-mono placeholder:text-zinc-700 focus:outline-none focus:border-zinc-600">
-        <button type="submit" class="px-3 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px]">Run</button>
+        <button type="submit" class="px-3 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] font-medium transition">Run</button>
       </form>
     </div>
   </div>
@@ -1067,7 +761,7 @@
         const cmd = 'powershell -ExecutionPolicy Bypass -c "irm https://webscrcpy.vercel.app/install-windows.ps1 | iex"';
         try {
           await navigator.clipboard.writeText(cmd);
-          if (txtCopyWinCmd) txtCopyWinCmd.textContent = 'Copied! ✅';
+          if (txtCopyWinCmd) txtCopyWinCmd.textContent = 'Copied';
           setTimeout(() => { if (txtCopyWinCmd) txtCopyWinCmd.textContent = 'Copy'; }, 2000);
         } catch {
           prompt('Copy this command:', cmd);
@@ -1189,12 +883,12 @@
           }
 
           if (pcCopied) {
-            logTerm(`📸 Screenshot (${canvas.width}x${canvas.height}) copied to computer clipboard!`, 'success');
+            logTerm(`Screenshot (${canvas.width}x${canvas.height}) copied to computer clipboard.`, 'success');
           } else {
-            logTerm('📸 Screenshot captured! Please allow clipboard permission in browser.', 'warn');
+            logTerm('Screenshot captured. Please allow clipboard permission in browser.', 'warn');
           }
           if (phoneCopied) {
-            logTerm('📋 Phone clipboard updated.', 'system');
+            logTerm('Phone clipboard updated.', 'system');
           }
         }, 'image/png');
       } catch (err) {
@@ -1239,16 +933,16 @@
         statusDot.className = 'w-2 h-2 rounded-full bg-emerald-400 shrink-0';
         txtDeviceName.classList.replace('text-zinc-400', 'text-zinc-200');
         btnWebUsbConnect.innerHTML = '<span>Disconnect</span>';
-        btnWebUsbConnect.className = 'h-8 px-4 rounded-full border border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white text-xs font-medium transition flex items-center gap-2';
+        btnWebUsbConnect.className = 'h-8 px-3.5 rounded-full border border-zinc-700/80 text-zinc-300 hover:bg-zinc-800 hover:text-white text-xs font-medium transition flex items-center gap-1.5';
       } else {
         statusDot.className = state.connecting
           ? 'w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0'
           : 'w-2 h-2 rounded-full bg-zinc-600 shrink-0';
         txtDeviceName.classList.replace('text-zinc-200', 'text-zinc-400');
         btnWebUsbConnect.innerHTML = state.connecting
-          ? '<i class="fa-solid fa-spinner fa-spin"></i><span>Connecting</span>'
-          : '<i class="fa-brands fa-usb"></i><span>Connect</span>';
-        btnWebUsbConnect.className = 'h-8 px-4 rounded-full bg-white text-zinc-900 hover:bg-zinc-200 disabled:opacity-60 text-xs font-medium transition flex items-center gap-2';
+          ? '<i class="fa-solid fa-spinner fa-spin text-[10px]"></i><span>Connecting</span>'
+          : '<i class="fa-brands fa-usb text-[11px]"></i><span>Connect</span>';
+        btnWebUsbConnect.className = 'h-8 px-3.5 rounded-full bg-zinc-100 text-zinc-900 hover:bg-white disabled:opacity-50 text-xs font-medium transition flex items-center gap-1.5 shadow-sm';
       }
       btnWebUsbConnect.disabled = state.connecting;
       renderWifiStatus();
@@ -1286,7 +980,7 @@
       list.replaceChildren();
       if (state.wifiError) {
         const note = document.createElement('div');
-        note.className = 'p-2.5 text-[11px] text-amber-300 leading-relaxed bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-1.5';
+        note.className = 'p-2.5 text-[11px] text-zinc-300 leading-relaxed bg-zinc-950 border border-zinc-800 rounded-xl space-y-1.5';
         const msg = document.createElement('p');
         msg.textContent = state.wifiError;
         note.appendChild(msg);
@@ -1294,8 +988,8 @@
         if (/Wi-Fi bridge/i.test(state.wifiError)) {
           const actionBtn = document.createElement('button');
           actionBtn.type = 'button';
-          actionBtn.className = 'w-full py-1 px-2.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[10px] font-medium transition flex items-center justify-center gap-1.5 border border-amber-500/30';
-          actionBtn.innerHTML = '<i class="fa-solid fa-terminal text-[9px]"></i> View 1-Click Terminal Setup';
+          actionBtn.className = 'w-full py-1.5 px-2.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[10px] font-medium transition flex items-center justify-center gap-1.5 border border-zinc-700/60';
+          actionBtn.innerHTML = '<i class="fa-solid fa-terminal text-[9px]"></i> View Wi-Fi Setup';
           actionBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             toggleDownload(true);
@@ -1310,16 +1004,16 @@
         
         const header = document.createElement('div');
         header.className = 'flex items-center gap-2 text-zinc-300 font-medium';
-        header.innerHTML = '<i class="fa-solid fa-wifi text-emerald-400 text-xs"></i><span>First time using Wi-Fi?</span>';
+        header.innerHTML = '<i class="fa-solid fa-wifi text-zinc-400 text-xs"></i><span>First time using Wi-Fi?</span>';
         
         const desc = document.createElement('p');
-        desc.className = 'text-zinc-400 text-[10px] leading-relaxed';
-        desc.textContent = 'Connect your phone with a USB cable once, or setup the 1-click Wi-Fi Helper for instant wireless mirroring.';
+        desc.className = 'text-zinc-500 text-[10px] leading-relaxed';
+        desc.textContent = 'Connect your phone with a USB cable once, or setup the Wi-Fi Helper for wireless mirroring.';
         
         const btnHelper = document.createElement('button');
         btnHelper.type = 'button';
-        btnHelper.className = 'w-full py-1.5 px-3 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[11px] font-medium transition flex items-center justify-center gap-1.5 border border-emerald-500/20';
-        btnHelper.innerHTML = '<i class="fa-solid fa-bolt text-[10px]"></i> Setup Wi-Fi Helper (1-Click)';
+        btnHelper.className = 'w-full py-1.5 px-3 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] font-medium transition flex items-center justify-center gap-1.5 border border-zinc-700/60';
+        btnHelper.innerHTML = '<i class="fa-solid fa-terminal text-[10px]"></i> Setup Wi-Fi Helper';
         btnHelper.addEventListener('click', (e) => {
           e.stopPropagation();
           toggleDownload(true);
@@ -1341,7 +1035,7 @@
         state.wifiHost = null;
         state.wifiSerial = null;
       }
-      logTerm(`🗑️ Removed ${phone.name} (${phone.host}) from Wi-Fi list.`, 'system');
+      logTerm(`Removed ${phone.name} (${phone.host}) from Wi-Fi list.`, 'system');
       renderWifiStatus();
     }
 
@@ -1374,7 +1068,7 @@
         e.stopPropagation();
         useWifi(phone).catch((err) => {
           console.error(err);
-          logTerm(`❌ Wi-Fi: ${err?.message ?? err}`, 'error');
+          logTerm(`Wi-Fi error: ${err?.message ?? err}`, 'error');
         });
       });
 
@@ -1409,7 +1103,7 @@
       } catch (err) {
         console.warn('Could not forget USB device:', err);
       }
-      logTerm(`🗑️ Removed ${device.name || 'device'} (${device.serial || 'USB'}) from paired devices.`, 'system');
+      logTerm(`Removed ${device.name || 'device'} (${device.serial || 'USB'}) from paired devices.`, 'system');
       await refreshDeviceList();
     }
 
@@ -1483,7 +1177,7 @@
       } catch (err) {
         if (err?.name === 'NotFoundError') return;
         console.error(err);
-        logTerm(`❌ Error: ${err?.message ?? err}`, 'error');
+        logTerm(`Error: ${err?.message ?? err}`, 'error');
       }
     });
 
@@ -1494,7 +1188,7 @@
       state.connecting = true;
       updateConnectionStatus();
       try {
-        logTerm(`🔌 Connecting to ${device.name} (${device.serial})...`, 'system');
+        logTerm(`Connecting to ${device.name} (${device.serial})...`, 'system');
 
         state.usbDevice = device;
         let connection;
@@ -1502,7 +1196,7 @@
           connection = await device.connect();
         } catch (err) {
           if (err instanceof AdbDaemonWebUsbDevice.DeviceBusyError) {
-            logTerm('❌ Device is busy or in use by another program (adb server / scrcpy).\nClose scrcpy and run "adb kill-server" in your terminal, then try again.', 'error');
+            logTerm('Device is busy or in use by another program (adb server / scrcpy).\nClose scrcpy and run "adb kill-server" in your terminal, then try again.', 'error');
             return;
           }
           throw err;
@@ -1511,7 +1205,7 @@
         await startAdbSession(connection, device.serial, 'usb');
       } catch (err) {
         console.error(err);
-        logTerm(`❌ Error: ${err?.message ?? err}`, 'error');
+        logTerm(`Error: ${err?.message ?? err}`, 'error');
         await disconnect();
       } finally {
         if (!state.adb) state.usbDevice = null;
@@ -1528,7 +1222,7 @@
       if (switching) {
         const host = await rememberWifiAddress(state.adb, phone.serial, phone.name) || phone.host;
         phone = { ...phone, host };
-        logTerm(`📶 Switching ADB to ${host}:5555. Cable can be unplugged after this.`, 'system');
+        logTerm(`Switching ADB to ${host}:5555. Cable can be unplugged after this.`, 'system');
         state.wifiHandoff = true;
         try {
           await state.adb.tcpip.setPort(5555);
@@ -1562,7 +1256,7 @@
       updateConnectionStatus();
       let adb;
       try {
-        logTerm(`🔌 ${phone.name} is connected via cable. Enabling Wi-Fi debugging...`, 'system');
+        logTerm(`${phone.name} is connected via cable. Enabling Wi-Fi debugging...`, 'system');
         const connection = await device.connect();
         const transport = await AdbDaemonTransport.authenticate({ serial: device.serial, connection, credentialStore });
         adb = new Adb(transport);
@@ -1603,7 +1297,7 @@
       updateConnectionStatus();
       let socket;
       try {
-        logTerm(`📶 Connecting to ${phone.name} (${host})...`, 'system');
+        logTerm(`Connecting to ${phone.name} (${host})...`, 'system');
         let lastError = null;
         for (let attempt = 0; attempt < attempts; attempt++) {
           try {
@@ -1635,11 +1329,11 @@
         state.wifiError = unreachable
           ? `${phone.name} did not answer at ${host}. Plug in the cable, close adb on the Mac (adb kill-server), then tap this phone again.`
           : message;
-        logTerm(`❌ Wi-Fi: ${state.wifiError}`, 'warn');
+        logTerm(`Wi-Fi error: ${state.wifiError}`, 'warn');
         if (/Wi-Fi bridge/i.test(message)) {
-          logTerm('⚠️ Wi-Fi Bridge Helper is required for wireless connection.', 'warn');
-          logTerm('👉 Mac: Run "curl -fsSL https://webscrcpy.vercel.app/install-mac.sh | bash" in Terminal.', 'system');
-          logTerm('👉 Windows: Run \'powershell -ExecutionPolicy Bypass -c "irm https://webscrcpy.vercel.app/install-windows.ps1 | iex"\' in Terminal or CMD.', 'system');
+          logTerm('Wi-Fi Bridge Helper is required for wireless connection.', 'warn');
+          logTerm('Mac: Run "curl -fsSL https://webscrcpy.vercel.app/install-mac.sh | bash" in Terminal.', 'system');
+          logTerm('Windows: Run \'powershell -ExecutionPolicy Bypass -c "irm https://webscrcpy.vercel.app/install-windows.ps1 | iex"\' in Terminal or CMD.', 'system');
           toggleDownload(true);
         } else {
           toggleDevices(true);
@@ -1855,7 +1549,7 @@
     }
 
     async function startAdbSession(connection, serial, link) {
-        logTerm('🔐 If prompted, tap "Allow" on the USB/Wireless debugging dialog on your phone...', 'warn');
+        logTerm('If prompted, tap "Allow" on the USB debugging prompt on your phone...', 'warn');
         const transport = await AdbDaemonTransport.authenticate({
           serial,
           connection,
@@ -1867,7 +1561,7 @@
         if (link === 'usb') state.wifiSerial = serial;
         adb.disconnected.then(() => {
           if (state.wifiHandoff || state.adb !== adb) return;
-          logTerm('⚠️ Device disconnected.', 'warn');
+          logTerm('Device disconnected.', 'warn');
           disconnect();
         });
 
@@ -1878,7 +1572,7 @@
         ]);
         if (state.adb !== adb) return;
         txtDeviceName.textContent = `${manufacturer.trim()} ${model.trim()} (Android ${release.trim()})`;
-        logTerm(`✅ ADB connected: ${txtDeviceName.textContent}`, 'success');
+        logTerm(`Connected: ${txtDeviceName.textContent}`, 'success');
         if (link === 'usb') await rememberWifiAddress(adb, serial, `${manufacturer.trim()} ${model.trim()}`);
         if (state.adb !== adb) return;
         state.connecting = false;
@@ -1966,7 +1660,7 @@
         else await startMirror();
       } catch (err) {
         console.error(err);
-        logTerm(`❌ Error: ${err?.message ?? err}`, 'error');
+        logTerm(`Error: ${err?.message ?? err}`, 'error');
         if (state.client) await stopMirror();
         else if (state.hasDex) showModeChooser(true);
       }
@@ -1977,7 +1671,7 @@
       if (!adb) return;
       const dex = state.displayMode === 'dex';
 
-      logTerm('📤 Pushing scrcpy-server to phone...', 'system');
+      logTerm('Preparing scrcpy server on device...', 'system');
       const res = await fetch(SERVER_FILE);
       if (!res.ok) throw new Error(`Failed to load ${SERVER_FILE} (HTTP ${res.status})`);
       if (state.adb !== adb) return;
@@ -1997,8 +1691,8 @@
       });
 
       logTerm(dex
-        ? `🚀 Starting DeX (1920x1080, ${state.bitrate} Mbps, ${state.fps} FPS)...`
-        : `🚀 Starting scrcpy (${state.resolution}, ${state.bitrate} Mbps, ${state.fps} FPS)...`, 'system');
+        ? `Starting DeX (1920x1080, ${state.bitrate} Mbps, ${state.fps} FPS)...`
+        : `Starting mirror session (${state.resolution}, ${state.bitrate} Mbps, ${state.fps} FPS)...`, 'system');
       const client = await AdbScrcpyClient.start(adb, DefaultServerPath, options);
       if (state.adb !== adb) {
         try { await client.close(); } catch {}
@@ -2011,7 +1705,7 @@
         .catch(() => {});
       client.exited.then(() => {
         if (state.client === client) {
-          logTerm('⚠️ scrcpy server stopped.', 'warn');
+          logTerm('Server stopped.', 'warn');
           stopMirror();
         }
       });
@@ -2046,8 +1740,8 @@
         await client.controller?.setScreenPowerMode(AndroidScreenPowerMode.Off);
       }
       logTerm(dex
-        ? '🖥️ Samsung DeX active. Use mouse and keyboard on desktop.'
-        : '📡 Mirroring active. Click/drag to control phone, type for text input.', 'success');
+        ? 'Samsung DeX active. Mouse and keyboard enabled.'
+        : 'Mirroring active. Mouse, keyboard, and touch enabled.', 'success');
     }
 
     let lastPhoneClipboard = '';
@@ -2063,7 +1757,7 @@
         try {
           await clipboard.writeText(text);
           const preview = text.length > 60 ? `${text.slice(0, 60)}…` : text;
-          logTerm(`📋 Copied to Mac: ${preview.replace(/\s+/g, ' ')}`, 'success');
+          logTerm(`Copied to clipboard: ${preview.replace(/\s+/g, ' ')}`, 'success');
           return;
         } catch (err) {
           lastError = err;
@@ -2104,14 +1798,14 @@
 
     async function restartMirror() {
       if (!state.adb || !state.client) return;
-      logTerm('🔄 Memulakan semula dengan tetapan baharu...', 'system');
+      logTerm('Restarting mirror session with updated settings...', 'system');
       mirrorRestarting = true;
       try {
         await stopMirror();
         await startMirror();
       } catch (err) {
         console.error(err);
-        logTerm(`❌ Error: ${err?.message ?? err}`, 'error');
+        logTerm(`Error: ${err?.message ?? err}`, 'error');
         mirrorRestarting = false;
         if (state.client) await stopMirror();
         else if (state.hasDex) showModeChooser(true);
@@ -2150,7 +1844,7 @@
         ...state.wifiPhones.filter((item) => item.serial !== phone.serial && item.host !== phone.host),
       ].slice(0, 8);
       localStorage.setItem('webscrcpy-phones', JSON.stringify(state.wifiPhones));
-      logTerm(`📶 ${phone.name} at ${phone.host}`, 'system');
+      logTerm(`Registered ${phone.name} at ${phone.host}`, 'system');
       renderWifiStatus();
       return phone.host;
     }
@@ -2202,14 +1896,14 @@
       renderDisplayMode();
       updateConnectionStatus();
       refreshDeviceList().catch(() => {});
-      if (adb && !quiet) logTerm('🔌 Diputuskan.', 'system');
+      if (adb && !quiet) logTerm('Disconnected.', 'system');
     }
 
     function onUsbDisconnect(event) {
       if (state.wifiHandoff || !state.usbDevice) return;
       if (event.device !== state.usbDevice.raw) return;
       if (state.link !== 'usb' && !state.connecting) return;
-      logTerm('⚠️ USB cable unplugged. Connection closed.', 'warn');
+      logTerm('USB cable unplugged. Connection closed.', 'warn');
       disconnect(true);
     }
     navigator.usb?.addEventListener('disconnect', onUsbDisconnect);
@@ -2227,7 +1921,7 @@
         const devices = await navigator.usb.getDevices();
         if (state.link !== 'usb' || state.usbDevice?.serial !== serial) return;
         if (devices.some((device) => usbSerial(device) === serial)) return;
-        logTerm('⚠️ USB cable unplugged. Connection closed.', 'warn');
+        logTerm('USB cable unplugged. Connection closed.', 'warn');
         disconnect(true);
       } catch {}
     }, 1000);
@@ -2753,7 +2447,9 @@
       const btn = pipWindow?.document.getElementById('pipFillBtn');
       if (!btn) return;
       btn.title = pipFill ? 'Fit inside window' : 'Fill display';
-      btn.textContent = pipFill ? '⤡' : '⤢';
+      btn.innerHTML = pipFill
+        ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>'
+        : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
       btn.style.background = pipFill ? '#fff' : 'rgba(0,0,0,.55)';
       btn.style.color = pipFill ? '#18181b' : '#fff';
     }
@@ -2890,13 +2586,13 @@
       const toolsBtn = doc.createElement('button');
       toolsBtn.type = 'button';
       toolsBtn.title = 'Controls';
-      toolsBtn.textContent = '☀';
-      toolsBtn.style.cssText = 'width:28px;height:28px;border:0;border-radius:999px;background:rgba(0,0,0,.55);color:#fff;font-size:14px;line-height:1;cursor:pointer;display:grid;place-items:center;';
+      toolsBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+      toolsBtn.style.cssText = 'width:28px;height:28px;border:0;border-radius:999px;background:rgba(0,0,0,.55);color:#fff;cursor:pointer;display:grid;place-items:center;';
       const pop = doc.createElement('div');
       pop.style.cssText = 'display:none;margin-top:6px;align-items:center;gap:8px;padding:6px 8px;border-radius:16px;background:rgba(24,24,27,.92);border:1px solid #3f3f46;max-width:calc(100vw - 52px);flex-wrap:wrap;';
       const brightMark = doc.createElement('span');
-      brightMark.textContent = '☀';
-      brightMark.style.cssText = 'color:#fff;font-size:12px;line-height:1;';
+      brightMark.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+      brightMark.style.cssText = 'color:#fff;display:inline-flex;align-items:center;';
       const brightSlider = doc.createElement('input');
       brightSlider.type = 'range';
       brightSlider.min = '30';
@@ -2938,7 +2634,7 @@
       const rotateBtn = doc.createElement('button');
       rotateBtn.id = 'pipRotateBtn';
       rotateBtn.type = 'button';
-      rotateBtn.textContent = '⟳';
+      rotateBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
       rotateBtn.style.cssText = volStyle;
       rotateBtn.title = 'Rotate screen (portrait / landscape)';
       rotateBtn.addEventListener('click', (e) => {
@@ -2951,7 +2647,7 @@
       disconnectBtn.id = 'pipDisconnectBtn';
       disconnectBtn.type = 'button';
       disconnectBtn.title = 'Disconnect';
-      disconnectBtn.textContent = '⏻';
+      disconnectBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>';
       disconnectBtn.style.cssText = volStyle;
       disconnectBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -3179,29 +2875,35 @@
       });
     }
 
-    function walkmanKey(doc, symbol, title) {
+    function walkmanKey(doc, iconHtml, title) {
       const btn = doc.createElement('button');
       btn.type = 'button';
       btn.title = title;
-      btn.textContent = symbol;
-      btn.style.cssText = 'flex:none;width:38px;height:38px;border:0;border-radius:8px;background:#2b2926;color:#f5f5f4;font-size:15px;line-height:1;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.22);';
+      btn.innerHTML = iconHtml;
+      btn.style.cssText = 'flex:none;width:34px;height:34px;border:0;border-radius:8px;background:#27272a;color:#f4f4f5;font-size:13px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;';
       return btn;
     }
 
     function buildWalkmanBar(doc) {
       const bar = doc.createElement('div');
       bar.id = 'pipMinBar';
-      bar.style.cssText = 'display:none;box-sizing:border-box;width:100%;height:100%;align-items:center;justify-content:space-evenly;padding:0 6px;background:#14120f;';
-      const goBack = walkmanKey(doc, '↩\uFE0E', 'Back to PiP');
-      const backward = walkmanKey(doc, '⏮\uFE0E', 'Backward');
-      const play = walkmanKey(doc, '⏯\uFE0E', 'Play / stop');
+      bar.style.cssText = 'display:none;box-sizing:border-box;width:100%;height:100%;align-items:center;justify-content:space-evenly;padding:0 6px;background:#09090b;';
+      const iconBack = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>';
+      const iconPrev = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2"/></svg>';
+      const iconPlay = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+      const iconNext = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2"/></svg>';
+      const iconScreen = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>';
+      const iconHangup = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>';
+      const goBack = walkmanKey(doc, iconBack, 'Back to PiP');
+      const backward = walkmanKey(doc, iconPrev, 'Backward');
+      const play = walkmanKey(doc, iconPlay, 'Play / stop');
       play.id = 'pipMinPlayBtn';
-      const next = walkmanKey(doc, '⏭\uFE0E', 'Next');
+      const next = walkmanKey(doc, iconNext, 'Next');
       const up = walkmanKey(doc, '+', 'Volume up');
       const down = walkmanKey(doc, '−', 'Volume down');
-      const screen = walkmanKey(doc, '●', 'Turn off phone screen');
+      const screen = walkmanKey(doc, iconScreen, 'Turn off phone screen');
       screen.id = 'pipMinScreenBtn';
-      const hangUp = walkmanKey(doc, '⏻', 'Disconnect');
+      const hangUp = walkmanKey(doc, iconHangup, 'Disconnect');
       hangUp.id = 'pipMinDisconnectBtn';
       goBack.addEventListener('pointerdown', (e) => e.stopPropagation());
       goBack.addEventListener('click', (e) => {
@@ -3338,19 +3040,18 @@
 
       if (btnMirror) {
         btnMirror.className = isRemote
-          ? 'px-2.5 py-1 rounded-full text-zinc-400 hover:text-white transition flex items-center gap-1.5'
-          : 'px-2.5 py-1 rounded-full bg-zinc-800 text-white font-medium transition flex items-center gap-1.5';
+          ? 'px-3 py-1 rounded-full text-zinc-400 hover:text-zinc-100 transition flex items-center gap-1.5'
+          : 'px-3 py-1 rounded-full bg-zinc-800 text-zinc-100 font-medium transition flex items-center gap-1.5 shadow-sm';
       }
       if (btnRemote) {
         btnRemote.className = isRemote
-          ? 'px-2.5 py-1 rounded-full bg-blue-600 text-white font-medium transition flex items-center gap-1.5 shadow-sm shadow-blue-900/30'
-          : 'px-2.5 py-1 rounded-full text-zinc-400 hover:text-white transition flex items-center gap-1.5';
+          ? 'px-3 py-1 rounded-full bg-zinc-800 text-zinc-100 font-medium transition flex items-center gap-1.5 shadow-sm'
+          : 'px-3 py-1 rounded-full text-zinc-400 hover:text-zinc-100 transition flex items-center gap-1.5';
       }
       if (btnToolRemote) {
-        btnToolRemote.classList.toggle('bg-blue-600', isRemote);
-        btnToolRemote.classList.toggle('text-white', isRemote);
-        btnToolRemote.classList.toggle('bg-zinc-900/90', !isRemote);
-        btnToolRemote.classList.toggle('text-zinc-300', !isRemote);
+        btnToolRemote.classList.toggle('bg-zinc-100', isRemote);
+        btnToolRemote.classList.toggle('text-zinc-900', isRemote);
+        btnToolRemote.classList.toggle('text-zinc-400', !isRemote);
       }
 
       renderMainViews();
@@ -3367,10 +3068,10 @@
         if (state.adb) {
           const linkType = state.link === 'wifi' ? 'Wi-Fi' : 'USB';
           const name = state.wifiSerial || state.usbDevice?.name || txtDeviceName?.textContent || 'Connected Phone';
-          dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0';
+          dot.className = 'w-2 h-2 rounded-full bg-emerald-400 shrink-0';
           txt.textContent = `${linkType} Remote Active · ${name}`;
         } else {
-          dot.className = 'w-2.5 h-2.5 rounded-full bg-zinc-600 shrink-0';
+          dot.className = 'w-2 h-2 rounded-full bg-zinc-600 shrink-0';
           txt.textContent = 'No Device Connected (Connect via Wi-Fi or USB)';
         }
       }
@@ -3378,213 +3079,153 @@
       const scrOffIcon = document.getElementById('remoteScreenOffIcon');
       const scrOffText = document.getElementById('remoteScreenOffText');
       const off = chkTurnOffScreen?.checked;
-      if (scrOffIcon) scrOffIcon.textContent = off ? '◐' : '●';
+      if (scrOffIcon) scrOffIcon.className = off ? 'w-1.5 h-1.5 rounded-full bg-zinc-200' : 'w-1.5 h-1.5 rounded-full bg-zinc-500';
       if (scrOffText) scrOffText.textContent = off ? 'Screen On' : 'Screen Off';
     }
 
-    const DEFAULT_REMOTE_LAYOUT = {
-      scale: 'normal',
-      sections: [
-        { id: 'nav', name: 'System Navigation', visible: true },
-        { id: 'media', name: 'Media & Volume', visible: true },
-        { id: 'utils', name: 'Quick Utilities', visible: true },
-        { id: 'text', name: 'Text Injector', visible: true },
-        { id: 'dpad', name: 'Circular D-Pad', visible: true }
-      ]
-    };
+    // =========================================================================
+    // WebRTC Peer-to-Peer TV & Phone Remote Logic
+    // =========================================================================
+    let tvRemotePeer = null;
+    let tvRemotePeerUrl = '';
+    let activityTimer = null;
 
-    let remoteLayout = loadRemoteLayout();
-    let isCustomizingRemote = false;
+    function flashRemoteActivity(text) {
+      const pill = document.getElementById('remoteActivityPill');
+      const txt = document.getElementById('remoteActivityText');
+      if (!pill || !txt) return;
+      txt.textContent = text;
+      pill.classList.remove('hidden');
+      clearTimeout(activityTimer);
+      activityTimer = setTimeout(() => {
+        pill.classList.add('hidden');
+      }, 1500);
+    }
 
-    function loadRemoteLayout() {
-      try {
-        const raw = localStorage.getItem('webscrcpy_remote_layout_v2');
-        if (!raw) return JSON.parse(JSON.stringify(DEFAULT_REMOTE_LAYOUT));
-        const parsed = JSON.parse(raw);
-        if (!parsed || !Array.isArray(parsed.sections)) {
-          return JSON.parse(JSON.stringify(DEFAULT_REMOTE_LAYOUT));
+    function renderRemoteQr(url) {
+      const qrBox = document.getElementById('remoteQrBox');
+      const qrSpinner = document.getElementById('remoteQrSpinner');
+      const inputUrl = document.getElementById('remotePeerUrlInput');
+      tvRemotePeerUrl = url;
+      if (inputUrl) inputUrl.value = url;
+      if (qrBox && typeof QRCode !== 'undefined') {
+        qrBox.innerHTML = '';
+        new QRCode(qrBox, {
+          text: url,
+          width: 170,
+          height: 170,
+          colorDark: '#09090b',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M,
+        });
+        if (qrSpinner) qrSpinner.style.display = 'none';
+      }
+    }
+
+    function buildRemoteUrl(peerId) {
+      const customHost = localStorage.getItem('webscrcpy-custom-remote-host');
+      if (customHost) {
+        const prefix = customHost.startsWith('http://') || customHost.startsWith('https://') ? '' : 'http://';
+        const url = new URL(prefix + customHost.replace(/\/$/, '') + '/remote.html');
+        url.searchParams.set('peer', peerId);
+        return url.toString();
+      }
+      if (window.location.protocol === 'file:') {
+        const fallback = '10.0.1.10:8000';
+        const url = new URL('http://' + fallback + '/remote.html');
+        url.searchParams.set('peer', peerId);
+        return url.toString();
+      }
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        const port = window.location.port ? ':' + window.location.port : '';
+        const url = new URL(window.location.protocol + '//10.0.1.10' + port + window.location.pathname.replace(/\/index\.html$/, '') + '/remote.html');
+        url.searchParams.set('peer', peerId);
+        return url.toString();
+      }
+      const remoteUrl = new URL('./remote.html', window.location.href);
+      remoteUrl.searchParams.set('peer', peerId);
+      return remoteUrl.toString();
+    }
+
+    let currentPeerHostId = '';
+
+    function initTvRemotePeer() {
+      if (tvRemotePeer) return;
+      const statusText = document.getElementById('remotePeerText');
+      const statusDot = document.getElementById('remotePeerDot');
+
+      // Check if file:// or localhost is used and display the helper warning
+      const isFileOrLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const warningBox = document.getElementById('remoteLocalWarning');
+      const inputCustomHost = document.getElementById('inputCustomHost');
+      if (isFileOrLocal && warningBox) {
+        warningBox.classList.remove('hidden');
+        if (inputCustomHost) {
+          inputCustomHost.value = localStorage.getItem('webscrcpy-custom-remote-host') || '10.0.1.10:8000';
         }
-        const validIds = new Set(DEFAULT_REMOTE_LAYOUT.sections.map(s => s.id));
-        const mergedSections = parsed.sections.filter(s => validIds.has(s.id));
-        for (const def of DEFAULT_REMOTE_LAYOUT.sections) {
-          if (!mergedSections.some(s => s.id === def.id)) {
-            mergedSections.push({ ...def });
+      }
+
+      if (typeof Peer === 'undefined') {
+        if (statusText) statusText.textContent = 'PeerJS library not loaded.';
+        return;
+      }
+
+      const hostId = 'webscrcpy-' + Math.random().toString(36).substring(2, 10);
+      try {
+        tvRemotePeer = new Peer(hostId, {
+          debug: 1,
+          config: {
+            iceServers: [
+              { urls: 'stun:stun.l.google.com:19302' },
+              { urls: 'stun:stun1.l.google.com:19302' },
+              { urls: 'stun:stun2.l.google.com:19302' },
+            ]
           }
-        }
-        return {
-          scale: ['compact', 'normal', 'large'].includes(parsed.scale) ? parsed.scale : 'normal',
-          sections: mergedSections
-        };
-      } catch {
-        return JSON.parse(JSON.stringify(DEFAULT_REMOTE_LAYOUT));
-      }
-    }
-
-    function saveRemoteLayout() {
-      try {
-        localStorage.setItem('webscrcpy_remote_layout_v2', JSON.stringify(remoteLayout));
+        });
       } catch (err) {
-        console.warn('Failed to save remote layout:', err);
-      }
-    }
-
-    function applyRemoteLayout() {
-      const remoteViewEl = document.getElementById('remoteView');
-      const container = document.getElementById('remoteSectionsContainer');
-      if (!remoteViewEl || !container) return;
-
-      // 1. Scale
-      remoteViewEl.classList.remove('remote-scale-compact', 'remote-scale-normal', 'remote-scale-large');
-      remoteViewEl.classList.add(`remote-scale-${remoteLayout.scale || 'normal'}`);
-
-      const btnCompact = document.getElementById('btnScaleCompact');
-      const btnNormal = document.getElementById('btnScaleNormal');
-      const btnLarge = document.getElementById('btnScaleLarge');
-      const activeBtnCls = 'px-2 py-0.5 rounded bg-zinc-800 text-white font-medium transition';
-      const inactiveBtnCls = 'px-2 py-0.5 rounded text-zinc-400 hover:text-white transition';
-      if (btnCompact) btnCompact.className = remoteLayout.scale === 'compact' ? activeBtnCls : inactiveBtnCls;
-      if (btnNormal) btnNormal.className = remoteLayout.scale === 'normal' ? activeBtnCls : inactiveBtnCls;
-      if (btnLarge) btnLarge.className = remoteLayout.scale === 'large' ? activeBtnCls : inactiveBtnCls;
-
-      // 2. Section order & visibility
-      const total = remoteLayout.sections.length;
-      remoteLayout.sections.forEach((sec, idx) => {
-        const secEl = container.querySelector(`[data-section="${sec.id}"]`);
-        if (!secEl) return;
-
-        container.appendChild(secEl);
-
-        secEl.classList.toggle('is-hidden', !sec.visible);
-
-        const labelEl = secEl.querySelector('.sec-label');
-        if (labelEl) {
-          labelEl.textContent = sec.name + (sec.visible ? '' : ' (Hidden)');
-        }
-
-        const btnUp = secEl.querySelector('.btn-sec-up');
-        const btnDown = secEl.querySelector('.btn-sec-down');
-        const btnToggle = secEl.querySelector('.btn-sec-toggle');
-
-        if (btnUp) {
-          btnUp.disabled = idx === 0;
-          btnUp.classList.toggle('opacity-30', idx === 0);
-          btnUp.classList.toggle('cursor-not-allowed', idx === 0);
-        }
-        if (btnDown) {
-          btnDown.disabled = idx === total - 1;
-          btnDown.classList.toggle('opacity-30', idx === total - 1);
-          btnDown.classList.toggle('cursor-not-allowed', idx === total - 1);
-        }
-        if (btnToggle) {
-          btnToggle.innerHTML = sec.visible
-            ? '<i class="fa-solid fa-eye text-[9px] text-zinc-300"></i>'
-            : '<i class="fa-solid fa-eye-slash text-[9px] text-red-400"></i>';
-          btnToggle.title = sec.visible ? 'Hide Section' : 'Show Section';
-        }
-      });
-    }
-
-    function toggleCustomizeRemote(force) {
-      isCustomizingRemote = typeof force === 'boolean' ? force : !isCustomizingRemote;
-      const remoteViewEl = document.getElementById('remoteView');
-      const bar = document.getElementById('remoteCustomizeBar');
-      const btn = document.getElementById('btnRemoteCustomize');
-      const txt = document.getElementById('remoteCustomizeText');
-
-      if (remoteViewEl) {
-        remoteViewEl.classList.toggle('remote-customizing', isCustomizingRemote);
-      }
-      if (bar) {
-        bar.classList.toggle('hidden', !isCustomizingRemote);
-      }
-      if (btn) {
-        if (isCustomizingRemote) {
-          btn.className = 'h-7 px-2.5 rounded-full border border-blue-500 bg-blue-600 text-white text-[11px] font-medium transition flex items-center gap-1 shadow-sm shadow-blue-900/30';
-          if (txt) txt.textContent = 'Done';
-        } else {
-          btn.className = 'h-7 px-2.5 rounded-full border border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-white text-[11px] font-medium transition flex items-center gap-1';
-          if (txt) txt.textContent = 'Customize';
-        }
+        console.error('Peer init error:', err);
+        if (statusText) statusText.textContent = 'Failed to initialize peer.';
+        return;
       }
 
-      const secBars = document.querySelectorAll('.remote-sec-bar');
-      secBars.forEach(sb => {
-        sb.classList.toggle('hidden', !isCustomizingRemote);
-        sb.classList.toggle('flex', isCustomizingRemote);
+      tvRemotePeer.on('open', (id) => {
+        currentPeerHostId = id;
+        const targetUrl = buildRemoteUrl(id);
+        renderRemoteQr(targetUrl);
+
+        if (statusText) statusText.textContent = 'Scan QR code with phone';
+        if (statusDot) statusDot.className = 'w-1.5 h-1.5 rounded-full bg-zinc-400 animate-pulse';
       });
 
-      applyRemoteLayout();
-    }
+      tvRemotePeer.on('connection', (conn) => {
+        if (statusText) statusText.textContent = 'Phone connected (WebRTC P2P)';
+        if (statusDot) statusDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400';
+        logTerm('Phone Remote connected via WebRTC: ' + conn.peer, 'success');
+        flashRemoteActivity('Phone connected');
 
-    function moveRemoteSection(id, dir) {
-      const idx = remoteLayout.sections.findIndex(s => s.id === id);
-      if (idx === -1) return;
-      const targetIdx = idx + dir;
-      if (targetIdx < 0 || targetIdx >= remoteLayout.sections.length) return;
-      const temp = remoteLayout.sections[idx];
-      remoteLayout.sections[idx] = remoteLayout.sections[targetIdx];
-      remoteLayout.sections[targetIdx] = temp;
-      saveRemoteLayout();
-      applyRemoteLayout();
-    }
+        conn.on('data', (data) => {
+          if (!data) return;
+          if (data.type === 'key' && typeof data.code === 'number') {
+            sendAdbKey(data.code).catch(() => {});
+            flashRemoteActivity('Key sent: ' + data.code);
+          } else if (data.type === 'text' && typeof data.text === 'string') {
+            injectTextToPhone(data.text).catch(() => {});
+            flashRemoteActivity('Text sent: "' + data.text.slice(0, 15) + '"');
+          }
+        });
 
-    function toggleRemoteSectionVisibility(id) {
-      const sec = remoteLayout.sections.find(s => s.id === id);
-      if (!sec) return;
-      sec.visible = !sec.visible;
-      saveRemoteLayout();
-      applyRemoteLayout();
-    }
+        conn.on('close', () => {
+          if (statusText) statusText.textContent = 'Phone disconnected. Waiting for scan...';
+          if (statusDot) statusDot.className = 'w-1.5 h-1.5 rounded-full bg-zinc-400 animate-pulse';
+          logTerm('Phone Remote WebRTC disconnected.', 'warn');
+        });
+      });
 
-    function setRemoteScale(scale) {
-      if (!['compact', 'normal', 'large'].includes(scale)) return;
-      remoteLayout.scale = scale;
-      saveRemoteLayout();
-      applyRemoteLayout();
-    }
-
-    function resetRemoteLayout() {
-      remoteLayout = JSON.parse(JSON.stringify(DEFAULT_REMOTE_LAYOUT));
-      saveRemoteLayout();
-      applyRemoteLayout();
-      logTerm('Remote layout reset to default.', 'system');
-    }
-
-    let currentRemoteDesign = 'layout1';
-    try {
-      currentRemoteDesign = localStorage.getItem('webscrcpy_remote_active_layout') || 'layout1';
-    } catch {}
-
-    function setRemoteDesign(design) {
-      if (!['layout1', 'layout2', 'layout3'].includes(design)) design = 'layout1';
-      currentRemoteDesign = design;
-      try {
-        localStorage.setItem('webscrcpy_remote_active_layout', design);
-      } catch {}
-
-      const v1 = document.getElementById('layoutView1');
-      const v2 = document.getElementById('layoutView2');
-      const v3 = document.getElementById('layoutView3');
-
-      const t1 = document.getElementById('tabRemoteLayout1');
-      const t2 = document.getElementById('tabRemoteLayout2');
-      const t3 = document.getElementById('tabRemoteLayout3');
-
-      const activeTabCls = 'flex-1 py-1.5 px-2 rounded-xl text-center text-[11px] font-medium transition text-white bg-zinc-800 shadow-sm';
-      const inactiveTabCls = 'flex-1 py-1.5 px-2 rounded-xl text-center text-[11px] font-medium transition text-zinc-400 hover:text-white';
-
-      if (v1) v1.classList.toggle('hidden', design !== 'layout1');
-      if (v2) v2.classList.toggle('hidden', design !== 'layout2');
-      if (v3) v3.classList.toggle('hidden', design !== 'layout3');
-
-      if (t1) t1.className = design === 'layout1' ? activeTabCls : inactiveTabCls;
-      if (t2) t2.className = design === 'layout2' ? activeTabCls : inactiveTabCls;
-      if (t3) t3.className = design === 'layout3' ? activeTabCls : inactiveTabCls;
-
-      const btnCustomize = document.getElementById('btnRemoteCustomize');
-      if (btnCustomize) {
-        btnCustomize.classList.toggle('hidden', design !== 'layout1');
-      }
+      tvRemotePeer.on('error', (err) => {
+        console.warn('Peer error:', err);
+        if (statusText) statusText.textContent = 'P2P Error: ' + (err?.type || err?.message || err);
+        if (statusDot) statusDot.className = 'w-1.5 h-1.5 rounded-full bg-rose-500';
+      });
     }
 
     function initRemoteControls() {
@@ -3594,142 +3235,51 @@
         setViewMode(state.viewMode === 'remote' ? 'mirror' : 'remote');
       });
 
-      // Layout Switcher Tabs
-      document.getElementById('tabRemoteLayout1')?.addEventListener('click', () => setRemoteDesign('layout1'));
-      document.getElementById('tabRemoteLayout2')?.addEventListener('click', () => setRemoteDesign('layout2'));
-      document.getElementById('tabRemoteLayout3')?.addEventListener('click', () => setRemoteDesign('layout3'));
-
-      // Layout 1: Customize mode toggles & scale
-      document.getElementById('btnRemoteCustomize')?.addEventListener('click', () => toggleCustomizeRemote());
-      document.getElementById('btnScaleCompact')?.addEventListener('click', () => setRemoteScale('compact'));
-      document.getElementById('btnScaleNormal')?.addEventListener('click', () => setRemoteScale('normal'));
-      document.getElementById('btnScaleLarge')?.addEventListener('click', () => setRemoteScale('large'));
-      document.getElementById('btnResetRemoteLayout')?.addEventListener('click', resetRemoteLayout);
-
-      // Layout 1: Section up/down/toggle event delegation
-      const container = document.getElementById('remoteSectionsContainer');
-      container?.addEventListener('click', (e) => {
-        const btnUp = e.target.closest('.btn-sec-up');
-        const btnDown = e.target.closest('.btn-sec-down');
-        const btnToggle = e.target.closest('.btn-sec-toggle');
-        const secEl = e.target.closest('.remote-section');
-        const secId = secEl?.getAttribute('data-section');
-        if (!secId) return;
-
-        if (btnUp) {
-          e.preventDefault();
-          moveRemoteSection(secId, -1);
-        } else if (btnDown) {
-          e.preventDefault();
-          moveRemoteSection(secId, 1);
-        } else if (btnToggle) {
-          e.preventDefault();
-          toggleRemoteSectionVisibility(secId);
-        }
-      });
-
-      // Layout 1: D-Pad
-      document.getElementById('btnDpadUp')?.addEventListener('click', () => sendAdbKey(19));
-      document.getElementById('btnDpadDown')?.addEventListener('click', () => sendAdbKey(20));
-      document.getElementById('btnDpadLeft')?.addEventListener('click', () => sendAdbKey(21));
-      document.getElementById('btnDpadRight')?.addEventListener('click', () => sendAdbKey(22));
-      document.getElementById('btnDpadOk')?.addEventListener('click', () => sendAdbKey(23));
-
-      // Layout 1: Navigation
-      document.getElementById('btnNavBack')?.addEventListener('click', () => sendAdbKey(4));
-      document.getElementById('btnNavHome')?.addEventListener('click', () => sendAdbKey(3));
-      document.getElementById('btnNavRecents')?.addEventListener('click', () => sendAdbKey(187));
-      document.getElementById('btnNavNotif')?.addEventListener('click', () => expandNotifications());
-
-      // Layout 1: Media
-      document.getElementById('btnMediaPrev')?.addEventListener('click', () => sendAdbKey(88));
-      document.getElementById('btnMediaPlay')?.addEventListener('click', () => sendAdbKey(85));
-      document.getElementById('btnMediaNext')?.addEventListener('click', () => sendAdbKey(87));
-      document.getElementById('btnMediaVolDown')?.addEventListener('click', () => sendAdbKey(25));
-      document.getElementById('btnMediaVolUp')?.addEventListener('click', () => sendAdbKey(24));
-      document.getElementById('btnMediaMute')?.addEventListener('click', () => sendAdbKey(164));
-
-      // Power & Screen (Fixed in header)
+      // Power & Screen off controls in header
       document.getElementById('btnRemotePower')?.addEventListener('click', () => sendAdbKey(26));
       document.getElementById('btnRemoteScreenOff')?.addEventListener('click', () => {
         setPhoneScreenOff(!chkTurnOffScreen.checked).then(updateRemoteStatus).catch(() => {});
       });
 
-      // Layout 1: Quick Utilities (Screenshot & Rotate)
-      document.getElementById('btnRemoteScreenshot')?.addEventListener('click', takeScreenshot);
-      document.getElementById('btnRemoteRotate')?.addEventListener('click', () => {
-        rotateScreen().catch((err) => {
-          logTerm(`Screen rotation failed: ${err?.message ?? err}`, 'error');
-        });
+      // Apply custom remote host URL / IP
+      document.getElementById('btnApplyCustomHost')?.addEventListener('click', () => {
+        const input = document.getElementById('inputCustomHost');
+        const val = input ? input.value.trim() : '';
+        if (val) {
+          localStorage.setItem('webscrcpy-custom-remote-host', val);
+        } else {
+          localStorage.removeItem('webscrcpy-custom-remote-host');
+        }
+        if (currentPeerHostId) {
+          const newUrl = buildRemoteUrl(currentPeerHostId);
+          renderRemoteQr(newUrl);
+          logTerm('Updated remote QR with host: ' + (val || 'default'), 'system');
+        }
       });
 
-      // Layout 1: Text Injector
-      const textForm = document.getElementById('remoteTextForm');
-      const textInput = document.getElementById('remoteTextInput');
-      textForm?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const val = textInput?.value?.trim();
-        if (!val) return;
-        await injectTextToPhone(val);
-        if (textInput) textInput.value = '';
+      // Copy pairing link button
+      const btnCopyRemoteUrl = document.getElementById('btnCopyRemoteUrl');
+      const txtCopyRemoteUrl = document.getElementById('txtCopyRemoteUrl');
+      btnCopyRemoteUrl?.addEventListener('click', async () => {
+        if (!tvRemotePeerUrl) return;
+        try {
+          await navigator.clipboard.writeText(tvRemotePeerUrl);
+          if (txtCopyRemoteUrl) txtCopyRemoteUrl.textContent = 'Copied!';
+          setTimeout(() => { if (txtCopyRemoteUrl) txtCopyRemoteUrl.textContent = 'Copy'; }, 2000);
+        } catch {
+          prompt('Pairing URL:', tvRemotePeerUrl);
+        }
       });
 
-      // Layout 2: Apple TV Classic Buttons
-      document.getElementById('btnL2Back')?.addEventListener('click', () => sendAdbKey(4));
-      document.getElementById('btnL2Home')?.addEventListener('click', () => sendAdbKey(3));
-      document.getElementById('btnL2Play')?.addEventListener('click', () => sendAdbKey(85));
-      document.getElementById('btnL2Mute')?.addEventListener('click', () => sendAdbKey(164));
-      document.getElementById('btnL2VolDown')?.addEventListener('click', () => sendAdbKey(25));
-      document.getElementById('btnL2VolUp')?.addEventListener('click', () => sendAdbKey(24));
+      // Open pairing link in new tab
+      document.getElementById('btnOpenRemoteTab')?.addEventListener('click', () => {
+        if (tvRemotePeerUrl) {
+          window.open(tvRemotePeerUrl, '_blank');
+        }
+      });
 
-      // Layout 2: Touchpad Gestures (Swipe / Tap)
-      const l2Pad = document.getElementById('l2TouchSurface');
-      if (l2Pad) {
-        let startX = 0, startY = 0, startTime = 0;
-        const onStart = (e) => {
-          const pt = e.touches ? e.touches[0] : e;
-          startX = pt.clientX;
-          startY = pt.clientY;
-          startTime = Date.now();
-        };
-        const onEnd = (e) => {
-          const pt = e.changedTouches ? e.changedTouches[0] : e;
-          const dx = pt.clientX - startX;
-          const dy = pt.clientY - startY;
-          const dt = Date.now() - startTime;
-          const absX = Math.abs(dx);
-          const absY = Math.abs(dy);
-          if (absX < 15 && absY < 15 && dt < 450) {
-            sendAdbKey(23); // Select / OK
-          } else if (absX > absY && absX > 20) {
-            sendAdbKey(dx > 0 ? 22 : 21); // Right / Left
-          } else if (absY > absX && absY > 20) {
-            sendAdbKey(dy > 0 ? 20 : 19); // Down / Up
-          }
-        };
-        l2Pad.addEventListener('mousedown', onStart);
-        l2Pad.addEventListener('mouseup', onEnd);
-        l2Pad.addEventListener('touchstart', onStart, { passive: true });
-        l2Pad.addEventListener('touchend', onEnd, { passive: true });
-      }
-
-      // Layout 3: Pictured Silver Siri Remote Buttons
-      document.getElementById('btnL3Power')?.addEventListener('click', () => sendAdbKey(26));
-      document.getElementById('btnL3DpadUp')?.addEventListener('click', () => sendAdbKey(19));
-      document.getElementById('btnL3DpadDown')?.addEventListener('click', () => sendAdbKey(20));
-      document.getElementById('btnL3DpadLeft')?.addEventListener('click', () => sendAdbKey(21));
-      document.getElementById('btnL3DpadRight')?.addEventListener('click', () => sendAdbKey(22));
-      document.getElementById('btnL3DpadOk')?.addEventListener('click', () => sendAdbKey(23));
-      document.getElementById('btnL3Back')?.addEventListener('click', () => sendAdbKey(4));
-      document.getElementById('btnL3Home')?.addEventListener('click', () => sendAdbKey(3));
-      document.getElementById('btnL3Play')?.addEventListener('click', () => sendAdbKey(85));
-      document.getElementById('btnL3Mute')?.addEventListener('click', () => sendAdbKey(164));
-      document.getElementById('btnL3VolUp')?.addEventListener('click', () => sendAdbKey(24));
-      document.getElementById('btnL3VolDown')?.addEventListener('click', () => sendAdbKey(25));
-
-      // Apply initial layout configuration & chosen design
-      applyRemoteLayout();
-      setRemoteDesign(currentRemoteDesign);
+      // Initialize WebRTC P2P peer so QR code is ready immediately
+      initTvRemotePeer();
     }
 
     function markCustomProfile() {
@@ -3822,7 +3372,7 @@
       const controller = state.client?.controller;
       if (!controller) return;
       await controller.setScreenPowerMode(off ? AndroidScreenPowerMode.Off : AndroidScreenPowerMode.Normal);
-      logTerm(off ? 'Skrin fizikal dimatikan.' : 'Skrin fizikal dihidupkan.', 'system');
+      logTerm(off ? 'Phone physical screen turned off.' : 'Phone physical screen turned on.', 'system');
     }
 
     function renderPipScreenBtn() {
@@ -3830,17 +3380,16 @@
       const title = off ? 'Phone screen is off' : 'Turn off phone screen';
       const drawer = pipWindow?.document.getElementById('pipScreenBtn');
       if (drawer) {
-        drawer.textContent = off ? '◐' : '●';
+        drawer.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>';
         drawer.title = title;
         drawer.style.background = off ? '#fff' : 'transparent';
         drawer.style.color = off ? '#18181b' : '#fff';
       }
       const min = pipWindow?.document.getElementById('pipMinScreenBtn');
       if (min) {
-        min.textContent = off ? '◐' : '●';
         min.title = title;
-        min.style.background = off ? '#f5f5f4' : '#2b2926';
-        min.style.color = off ? '#18181b' : '#f5f5f4';
+        min.style.background = off ? '#f4f4f5' : '#27272a';
+        min.style.color = off ? '#18181b' : '#f4f4f5';
       }
     }
 
@@ -3859,8 +3408,8 @@
         await shell(['settings', 'put', 'system', 'user_rotation', rotation]);
       }
       logTerm(landscape
-        ? 'Putar ke portrait.'
-        : 'Putar ke landscape. Jika skrin tidak berubah, app ini (contoh home screen) dikunci pada portrait.', 'system');
+        ? 'Rotated to portrait.'
+        : 'Rotated to landscape.', 'system');
     }
 
     chkTurnOffScreen.addEventListener('change', () => {
@@ -3958,7 +3507,7 @@
         inputManualIp.value = '';
         useWifi(phone).catch((err) => {
           console.error(err);
-          logTerm(`❌ Wi-Fi: ${err?.message ?? err}`, 'error');
+          logTerm(`Wi-Fi error: ${err?.message ?? err}`, 'error');
         });
       });
     }
@@ -3973,12 +3522,12 @@
         if (state.client?.controller) {
           await state.client.controller.setClipboard({ content: text, paste: false });
           const preview = text.length > 50 ? `${text.slice(0, 50)}…` : text;
-          logTerm(`📋 Clipboard synced to phone: ${preview.replace(/\s+/g, ' ')}`, 'success');
+          logTerm(`Clipboard synced to phone: ${preview.replace(/\s+/g, ' ')}`, 'success');
         } else if (state.adb) {
           const escapedText = text.replace(/([ "$`\\])/g, '\\$1');
           await state.adb.subprocess.noneProtocol.spawnWaitText(['input', 'text', escapedText]);
           const preview = text.length > 50 ? `${text.slice(0, 50)}…` : text;
-          logTerm(`📋 Text typed to phone: ${preview.replace(/\s+/g, ' ')}`, 'success');
+          logTerm(`Text typed to phone: ${preview.replace(/\s+/g, ' ')}`, 'success');
         } else {
           logTerm('No phone connected.', 'warn');
         }
@@ -3987,7 +3536,7 @@
         logTerm(`Clipboard access denied: ${err?.message ?? err}. Please allow clipboard permission in your browser.`, 'warn');
       }
     });
- 
+
  </script>
 </body>
 </html>

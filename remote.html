@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en" class="dark h-full bg-[#09090b] text-zinc-100 select-none">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#09090b">
+  <title>WebScrcpy TV Remote</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      padding-top: env(safe-area-inset-top, 16px);
+      padding-bottom: env(safe-area-inset-bottom, 20px);
+    }
+    .btn-press:active {
+      transform: scale(0.94);
+      filter: brightness(1.2);
+    }
+    .term-scroll::-webkit-scrollbar { width: 3px; }
+    .term-scroll::-webkit-scrollbar-thumb { background: #27272a; border-radius: 4px; }
+  </style>
+</head>
+<body class="min-h-full flex flex-col justify-between items-center px-4 py-3 max-w-md mx-auto">
+
+  <!-- TOP HEADER & STATUS -->
+  <header class="w-full flex items-center justify-between pb-3 border-b border-zinc-800/80">
+    <div class="flex items-center gap-2.5">
+      <span id="connStatusDot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
+      <div>
+        <h1 class="text-xs font-semibold tracking-wide text-zinc-200">WebScrcpy Remote</h1>
+        <p id="connStatusText" class="text-[10px] text-zinc-500 font-mono">Connecting to host...</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button id="btnHapticToggle" type="button" class="w-8 h-8 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-100 transition flex items-center justify-center text-xs">
+        <i class="fa-solid fa-mobile text-[11px]"></i>
+      </button>
+      <button id="btnPower" type="button" data-key="26" title="Power" class="btn-press w-8 h-8 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-rose-400 transition flex items-center justify-center text-xs">
+        <i class="fa-solid fa-power-off"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN REMOTE BODY -->
+  <main class="w-full flex-1 flex flex-col items-center justify-center gap-4 py-3">
+
+    <!-- MEDIA PLAYBACK & VOLUME QUICK ROW -->
+    <section class="w-full grid grid-cols-6 gap-1.5 p-1.5 rounded-2xl bg-zinc-900/90 border border-zinc-800/80 shadow-lg">
+      <button data-key="88" title="Previous Track" class="btn-press h-10 rounded-xl bg-zinc-950 border border-zinc-800/80 text-zinc-400 hover:text-zinc-100 flex items-center justify-center">
+        <i class="fa-solid fa-backward-step text-xs"></i>
+      </button>
+      <button data-key="85" title="Play / Pause" class="btn-press h-10 rounded-xl bg-zinc-100 text-zinc-950 font-medium flex items-center justify-center shadow-sm hover:bg-white">
+        <i class="fa-solid fa-play text-xs"></i>
+      </button>
+      <button data-key="87" title="Next Track" class="btn-press h-10 rounded-xl bg-zinc-950 border border-zinc-800/80 text-zinc-400 hover:text-zinc-100 flex items-center justify-center">
+        <i class="fa-solid fa-forward-step text-xs"></i>
+      </button>
+      <button data-key="25" title="Volume Down" class="btn-press h-10 rounded-xl bg-zinc-950 border border-zinc-800/80 text-zinc-400 hover:text-zinc-100 flex items-center justify-center">
+        <i class="fa-solid fa-volume-low text-xs"></i>
+      </button>
+      <button data-key="24" title="Volume Up" class="btn-press h-10 rounded-xl bg-zinc-950 border border-zinc-800/80 text-zinc-400 hover:text-zinc-100 flex items-center justify-center">
+        <i class="fa-solid fa-volume-high text-xs"></i>
+      </button>
+      <button data-key="164" title="Mute Volume" class="btn-press h-10 rounded-xl bg-zinc-950 border border-zinc-800/80 text-zinc-400 hover:text-zinc-100 flex items-center justify-center">
+        <i class="fa-solid fa-volume-xmark text-xs"></i>
+      </button>
+    </section>
+
+    <!-- CIRCULAR D-PAD NAVIGATION -->
+    <section class="flex justify-center py-1">
+      <div class="relative w-52 h-52 rounded-full bg-zinc-900 border border-zinc-800 shadow-2xl flex items-center justify-center p-2.5">
+        <!-- Up -->
+        <button data-key="19" title="Up" class="btn-press absolute top-2 inset-x-16 h-12 rounded-t-full bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 flex items-center justify-center border-t border-x border-zinc-800/80">
+          <i class="fa-solid fa-chevron-up text-sm"></i>
+        </button>
+        <!-- Down -->
+        <button data-key="20" title="Down" class="btn-press absolute bottom-2 inset-x-16 h-12 rounded-b-full bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 flex items-center justify-center border-b border-x border-zinc-800/80">
+          <i class="fa-solid fa-chevron-down text-sm"></i>
+        </button>
+        <!-- Left -->
+        <button data-key="21" title="Left" class="btn-press absolute left-2 inset-y-16 w-12 rounded-l-full bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 flex items-center justify-center border-l border-y border-zinc-800/80">
+          <i class="fa-solid fa-chevron-left text-sm"></i>
+        </button>
+        <!-- Right -->
+        <button data-key="22" title="Right" class="btn-press absolute right-2 inset-y-16 w-12 rounded-r-full bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 flex items-center justify-center border-r border-y border-zinc-800/80">
+          <i class="fa-solid fa-chevron-right text-sm"></i>
+        </button>
+        <!-- Center OK -->
+        <button data-key="23" title="Select / OK" class="btn-press w-20 h-20 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-semibold text-sm transition shadow-lg flex items-center justify-center border border-zinc-700 z-10">
+          OK
+        </button>
+      </div>
+    </section>
+
+    <!-- SYSTEM NAVIGATION KEYS -->
+    <section class="w-full grid grid-cols-4 gap-2">
+      <button data-key="4" title="Back" class="btn-press py-3 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-100 flex flex-col items-center gap-1 transition">
+        <i class="fa-solid fa-arrow-left text-sm"></i>
+        <span class="text-[10px] font-medium">Back</span>
+      </button>
+      <button data-key="3" title="Home" class="btn-press py-3 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-100 flex flex-col items-center gap-1 transition">
+        <i class="fa-solid fa-house text-sm"></i>
+        <span class="text-[10px] font-medium">Home</span>
+      </button>
+      <button data-key="187" title="Recent Apps" class="btn-press py-3 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-100 flex flex-col items-center gap-1 transition">
+        <i class="fa-solid fa-bars text-sm"></i>
+        <span class="text-[10px] font-medium">Recents</span>
+      </button>
+      <button data-key="83" title="Notifications" class="btn-press py-3 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-100 flex flex-col items-center gap-1 transition">
+        <i class="fa-solid fa-bell text-sm"></i>
+        <span class="text-[10px] font-medium">Notif</span>
+      </button>
+    </section>
+
+    <!-- TEXT / URL INJECTOR FORM -->
+    <section class="w-full pt-1">
+      <form id="textForm" class="flex items-center gap-2">
+        <input type="text" id="textInput" placeholder="Type text to send to phone..." class="flex-1 h-10 px-3.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-700 transition">
+        <button type="submit" class="btn-press h-10 px-4 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 text-xs font-medium transition flex items-center gap-1.5 shadow-sm">
+          <i class="fa-solid fa-paper-plane text-[10px]"></i> Send
+        </button>
+      </form>
+    </section>
+  </main>
+
+  <!-- FOOTER LOG & RECONNECT -->
+  <footer class="w-full pt-2 border-t border-zinc-800/80 flex items-center justify-between text-[11px] text-zinc-500">
+    <span id="txtFeedback">WebRTC Peer-to-Peer</span>
+    <button id="btnReconnect" type="button" class="text-zinc-400 hover:text-zinc-200 underline text-[10px]">Reconnect</button>
+  </footer>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const hostPeerId = urlParams.get('peer');
+
+    const connStatusDot = document.getElementById('connStatusDot');
+    const connStatusText = document.getElementById('connStatusText');
+    const txtFeedback = document.getElementById('txtFeedback');
+    const btnReconnect = document.getElementById('btnReconnect');
+    const textForm = document.getElementById('textForm');
+    const textInput = document.getElementById('textInput');
+    const btnHapticToggle = document.getElementById('btnHapticToggle');
+
+    let hapticsEnabled = true;
+    let peer = null;
+    let conn = null;
+
+    btnHapticToggle.addEventListener('click', () => {
+      hapticsEnabled = !hapticsEnabled;
+      btnHapticToggle.classList.toggle('text-blue-400', hapticsEnabled);
+      btnHapticToggle.classList.toggle('text-zinc-500', !hapticsEnabled);
+      if (hapticsEnabled && navigator.vibrate) navigator.vibrate(20);
+    });
+
+    function vibrate(ms = 25) {
+      if (hapticsEnabled && typeof navigator.vibrate === 'function') {
+        try { navigator.vibrate(ms); } catch {}
+      }
+    }
+
+    function setStatus(state, message) {
+      connStatusText.textContent = message;
+      if (state === 'connected') {
+        connStatusDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50 shrink-0';
+      } else if (state === 'connecting') {
+        connStatusDot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0';
+      } else {
+        connStatusDot.className = 'w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0';
+      }
+    }
+
+    function sendPayload(payload) {
+      if (!conn || !conn.open) {
+        txtFeedback.textContent = 'Not connected to host!';
+        txtFeedback.className = 'text-rose-400';
+        return false;
+      }
+      try {
+        conn.send(payload);
+        txtFeedback.className = 'text-zinc-400';
+        if (payload.type === 'key') {
+          txtFeedback.textContent = `Sent keycode ${payload.code}`;
+        } else if (payload.type === 'text') {
+          txtFeedback.textContent = `Sent text "${payload.text.slice(0, 20)}"`;
+        }
+        return true;
+      } catch (err) {
+        console.error('Send error:', err);
+        txtFeedback.textContent = 'Send failed.';
+        txtFeedback.className = 'text-rose-400';
+        return false;
+      }
+    }
+
+    function initWebRtc() {
+      if (!hostPeerId) {
+        setStatus('error', 'Missing ?peer= in URL');
+        txtFeedback.textContent = 'Scan QR code from WebScrcpy to pair.';
+        txtFeedback.className = 'text-rose-400';
+        return;
+      }
+
+      setStatus('connecting', 'Connecting to WebScrcpy host...');
+      if (peer) {
+        try { peer.destroy(); } catch {}
+      }
+
+      peer = new Peer({
+        debug: 1,
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+          ]
+        }
+      });
+
+      peer.on('open', (id) => {
+        console.log('Mobile peer ready:', id);
+        connectToHost();
+      });
+
+      peer.on('error', (err) => {
+        console.error('Peer error:', err);
+        setStatus('error', 'Connection error: ' + (err.type || 'failed'));
+        txtFeedback.textContent = 'Check internet & firewall. Tap Reconnect.';
+        txtFeedback.className = 'text-rose-400';
+      });
+    }
+
+    function connectToHost() {
+      if (!peer || !hostPeerId) return;
+      setStatus('connecting', 'Handshaking WebRTC...');
+      
+      conn = peer.connect(hostPeerId, {
+        reliable: true,
+        metadata: {
+          userAgent: navigator.userAgent,
+          platform: navigator.platform,
+        }
+      });
+
+      const connectTimeout = setTimeout(() => {
+        if (!conn || !conn.open) {
+          setStatus('error', 'Handshake timed out');
+          txtFeedback.textContent = 'Host took too long to answer. Tap Reconnect.';
+          txtFeedback.className = 'text-rose-400';
+        }
+      }, 10000);
+
+      conn.on('open', () => {
+        clearTimeout(connectTimeout);
+        setStatus('connected', 'Connected to WebScrcpy');
+        vibrate([30, 40, 30]);
+        txtFeedback.textContent = 'P2P WebRTC DataChannel active';
+        txtFeedback.className = 'text-emerald-400';
+        // Send initial handshake info
+        conn.send({ type: 'handshake', device: /iphone|ipad/i.test(navigator.userAgent) ? 'iPhone' : 'Android' });
+      });
+
+      conn.on('close', () => {
+        setStatus('error', 'Connection closed');
+        txtFeedback.textContent = 'Host disconnected.';
+        txtFeedback.className = 'text-zinc-500';
+      });
+
+      conn.on('error', (err) => {
+        console.error('DataChannel error:', err);
+        setStatus('error', 'DataChannel error');
+      });
+    }
+
+    // Attach button click events
+    document.querySelectorAll('[data-key]').forEach(btn => {
+      const code = Number(btn.getAttribute('data-key'));
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        vibrate(25);
+        sendPayload({ type: 'key', code });
+      });
+    });
+
+    // Handle text submission
+    textForm?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const val = textInput.value?.trim();
+      if (!val) return;
+      vibrate(30);
+      if (sendPayload({ type: 'text', text: val })) {
+        textInput.value = '';
+      }
+    });
+
+    btnReconnect?.addEventListener('click', () => {
+      initWebRtc();
+    });
+
+    // Start WebRTC connection
+    initWebRtc();
+  </script>
+</body>
+</html>
