@@ -1723,6 +1723,7 @@
         badgeRes.textContent = `${width}x${height}`;
         fitPipWindow(width, height);
         layoutCanvas();
+        renderMainViews();
       });
       videoStream.stream.pipeTo(decoder.writable).catch((err) => {
         if (state.decoder === decoder) logTerm(`Video stream error: ${err?.message ?? err}`, 'error');
@@ -1730,10 +1731,13 @@
 
       showModeChooser(false);
       idleView.classList.add('hidden');
+      idleView.style.display = 'none';
       canvas.style.borderRadius = dex ? '12px' : '22px';
       canvas.classList.remove('hidden');
+      canvas.style.display = 'block';
       syncScreenTools();
       layoutCanvas();
+      renderMainViews();
       canvas.focus();
 
       if (chkTurnOffScreen.checked) {
@@ -1930,6 +1934,8 @@
     function resetVideoCanvas() {
       const canvas = videoCanvas.cloneNode(false);
       canvas.classList.remove('invisible');
+      canvas.classList.remove('hidden');
+      canvas.style.display = 'block';
       videoCanvas.replaceWith(canvas);
       videoCanvas = canvas;
       attachInputHandlers(canvas);
@@ -3013,7 +3019,7 @@
           if (idleView) { idleView.classList.add('hidden'); idleView.style.display = 'none'; }
           if (modeChooser) { modeChooser.classList.add('hidden'); modeChooser.style.display = 'none'; }
           if (screenTools) screenTools.classList.add('hidden');
-        } else if (state.client && videoCanvas && videoCanvas.width) {
+        } else if (state.client && videoCanvas) {
           if (videoCanvas) { videoCanvas.classList.remove('hidden'); videoCanvas.style.display = 'block'; }
           if (idleView) { idleView.classList.add('hidden'); idleView.style.display = 'none'; }
           if (modeChooser) { modeChooser.classList.add('hidden'); modeChooser.style.display = 'none'; }
