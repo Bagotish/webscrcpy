@@ -240,10 +240,10 @@
         <div class="pt-2 border-t border-zinc-800/80 space-y-2">
           <div class="flex items-center justify-between text-[11px] text-zinc-400 px-0.5">
             <span>Direct Pairing Link</span>
-            <button id="btnOpenRemoteTab" type="button" class="text-zinc-400 hover:text-zinc-200 transition flex items-center gap-1">
+            <a id="btnOpenRemoteTab" href="#" target="_blank" rel="noopener noreferrer" class="text-zinc-400 hover:text-zinc-200 transition flex items-center gap-1 cursor-pointer">
               <span>Open Tab</span>
               <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
-            </button>
+            </a>
           </div>
           <div class="flex items-center gap-2">
             <input type="text" id="remotePeerUrlInput" readonly class="flex-1 min-w-0 bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-zinc-300 select-all focus:outline-none" placeholder="Waiting for Peer ID...">
@@ -3136,21 +3136,16 @@
         url.searchParams.set('peer', peerId);
         return url.toString();
       }
-      if (window.location.protocol === 'file:') {
-        const fallback = '10.0.1.10:8000';
-        const url = new URL('http://' + fallback + '/remote.html');
-        url.searchParams.set('peer', peerId);
-        return url.toString();
-      }
-      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        const port = window.location.port ? ':' + window.location.port : '';
-        const url = new URL(window.location.protocol + '//10.0.1.10' + port + window.location.pathname.replace(/\/index\.html$/, '') + '/remote.html');
-        url.searchParams.set('peer', peerId);
-        return url.toString();
-      }
       const remoteUrl = new URL('./remote.html', window.location.href);
       remoteUrl.searchParams.set('peer', peerId);
       return remoteUrl.toString();
+    }
+
+    function getLocalRemoteUrl(peerId) {
+      const id = peerId || currentPeerHostId || (tvRemotePeer && tvRemotePeer.id);
+      const url = new URL('./remote.html', window.location.href);
+      if (id) url.searchParams.set('peer', id);
+      return url.toString();
     }
 
     let currentPeerHostId = '';
@@ -3167,7 +3162,7 @@
       if (isFileOrLocal && warningBox) {
         warningBox.classList.remove('hidden');
         if (inputCustomHost) {
-          inputCustomHost.value = localStorage.getItem('webscrcpy-custom-remote-host') || '10.0.1.10:8000';
+          inputCustomHost.value = localStorage.getItem('webscrcpy-custom-remote-host') || '';
         }
       }
 
@@ -3198,6 +3193,8 @@
         currentPeerHostId = id;
         const targetUrl = buildRemoteUrl(id);
         renderRemoteQr(targetUrl);
+        const btnOpen = document.getElementById('btnOpenRemoteTab');
+        if (btnOpen) btnOpen.href = getLocalRemoteUrl(id);
 
         if (statusText) statusText.textContent = 'Scan QR code with phone';
         if (statusDot) statusDot.className = 'w-1.5 h-1.5 rounded-full bg-zinc-400 animate-pulse';
@@ -3277,11 +3274,16 @@
         }
       });
 
-      // Open pairing link in new tab
-      document.getElementById('btnOpenRemoteTab')?.addEventListener('click', () => {
-        if (tvRemotePeerUrl) {
-          window.open(tvRemotePeerUrl, '_blank');
+      // Open pairing link in new tab on this computer
+      document.getElementById('btnOpenRemoteTab')?.addEventListener('click', (e) => {
+        const id = currentPeerHostId || (tvRemotePeer && tvRemotePeer.id);
+        if (!id) {
+          e.preventDefault();
+          logTerm('Remote pairing link is still initializing. Please wait a moment...', 'warn');
+          return;
         }
+        const localUrl = getLocalRemoteUrl(id);
+        e.currentTarget.href = localUrl;
       });
 
       // Initialize WebRTC P2P peer so QR code is ready immediately
