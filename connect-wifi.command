@@ -77,6 +77,8 @@ if "$ADB_BIN" devices | grep -q "^$IP:5555.*device$"; then
     echo ""
     echo "   Open WebScrcpy and tap your phone to start."
     echo "=================================================="
+    # Release the USB device so the browser (WebUSB) can claim it.
+    "$ADB_BIN" kill-server >/dev/null 2>&1
 else
     echo ""
     echo "⚠️  Wi-Fi connect didn't complete. Watch the phone screen"
