@@ -271,6 +271,8 @@ import {
 
     function syncScreenTools() {
       document.getElementById('screenTools').classList.toggle('hidden', videoCanvas.classList.contains('hidden'));
+      document.body.classList.toggle('mirroring', !videoCanvas.classList.contains('hidden'));
+      document.body.classList.remove('tools-visible');
     }
 
     document.getElementById('btnFit').addEventListener('click', () => {
@@ -280,6 +282,19 @@ import {
     });
     document.getElementById('btnZoomIn')?.addEventListener('click', () => performPinchZoom(true));
     document.getElementById('btnZoomOut')?.addEventListener('click', () => performPinchZoom(false));
+
+    // Click on the mirrored screen toggles the side tools (auto-hide).
+    videoCanvas?.addEventListener('click', () => {
+      if (document.body.classList.contains('mirroring')) {
+        document.body.classList.toggle('tools-visible');
+      }
+    });
+    // Hide tools again when clicking elsewhere.
+    document.addEventListener('click', (e) => {
+      if (!document.body.classList.contains('mirroring')) return;
+      if (e.target.closest('#screenTools') || e.target === videoCanvas) return;
+      document.body.classList.remove('tools-visible');
+    });
 
     videoCanvas?.addEventListener('dblclick', () => {
       if (document.fullscreenElement) {

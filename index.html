@@ -54,13 +54,15 @@
       opacity: 1 !important;
       pointer-events: auto !important;
     }
-    body.is-fullscreen #screenTools {
+    body.is-fullscreen #screenTools,
+    body.mirroring #screenTools {
       opacity: 0 !important;
       pointer-events: none !important;
       transition: opacity .15s ease;
     }
     body.is-fullscreen:hover #screenTools,
-    body.is-fullscreen #screenTools:hover {
+    body.is-fullscreen #screenTools:hover,
+    body.mirroring.tools-visible #screenTools {
       opacity: 0.9 !important;
       pointer-events: auto !important;
     }
