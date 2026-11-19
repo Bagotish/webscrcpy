@@ -373,6 +373,8 @@ import {
     document.addEventListener('fullscreenchange', () => {
       renderFullscreenBtn();
       layoutCanvas();
+      // Reset tool visibility state when entering/leaving fullscreen.
+      document.body.classList.remove('tools-visible');
     });
 
     document.addEventListener('keydown', (e) => {

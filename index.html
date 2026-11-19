@@ -50,7 +50,8 @@
       transition: opacity .15s ease;
     }
     body.is-fullscreen header:hover,
-    body.is-fullscreen header:focus-within {
+    body.is-fullscreen header:focus-within,
+    body.is-fullscreen.tools-visible header {
       opacity: 1 !important;
       pointer-events: auto !important;
     }
@@ -61,6 +62,7 @@
       transition: opacity .15s ease;
     }
     body.is-fullscreen #screenTools:hover,
+    body.is-fullscreen.tools-visible #screenTools,
     body.mirroring.tools-visible #screenTools {
       opacity: 0.9 !important;
       pointer-events: auto !important;
