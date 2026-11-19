@@ -304,6 +304,21 @@ import {
     });
     document.getElementById('screenTools')?.addEventListener('mouseenter', () => clearTimeout(toolsHideTimer));
 
+    // Reveal header / tools when the pointer nears the screen edges (hover can't
+    // reach them while they are pointer-events:none).
+    document.addEventListener('pointermove', (e) => {
+      if (!document.body.classList.contains('mirroring')) return;
+      clearTimeout(toolsHideTimer);
+      const nearTop = e.clientY <= 56;
+      const nearLeft = e.clientX <= 90;
+      const anyHover = e.target.closest?.('#screenTools, header');
+      if (nearTop || nearLeft || anyHover) {
+        document.body.classList.add('tools-visible');
+      } else {
+        toolsHideTimer = setTimeout(() => document.body.classList.remove('tools-visible'), 1200);
+      }
+    });
+
     videoCanvas?.addEventListener('dblclick', () => {
       if (document.fullscreenElement) {
         document.exitFullscreen().catch(() => {});
