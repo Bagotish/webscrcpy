@@ -296,6 +296,14 @@ import {
       document.body.classList.remove('tools-visible');
     });
 
+    // Auto-hide tools a moment after the pointer leaves them (fullscreen safety net).
+    let toolsHideTimer = null;
+    document.getElementById('screenTools')?.addEventListener('mouseleave', () => {
+      clearTimeout(toolsHideTimer);
+      toolsHideTimer = setTimeout(() => document.body.classList.remove('tools-visible'), 1200);
+    });
+    document.getElementById('screenTools')?.addEventListener('mouseenter', () => clearTimeout(toolsHideTimer));
+
     videoCanvas?.addEventListener('dblclick', () => {
       if (document.fullscreenElement) {
         document.exitFullscreen().catch(() => {});
@@ -2471,6 +2479,7 @@ import {
         if (screenTools) screenTools.classList.add('hidden');
         if (remoteView) { remoteView.classList.remove('hidden'); remoteView.style.display = 'flex'; }
       } else {
+        document.body.classList.remove('mirroring', 'tools-visible');
         if (remoteView) { remoteView.classList.add('hidden'); remoteView.style.display = 'none'; }
         if (pipWindow) {
           if (pipView) { pipView.classList.remove('hidden'); pipView.style.display = 'flex'; }
@@ -2484,6 +2493,8 @@ import {
           if (modeChooser) { modeChooser.classList.add('hidden'); modeChooser.style.display = 'none'; }
           if (pipView) { pipView.classList.add('hidden'); pipView.style.display = 'none'; }
           if (screenTools) screenTools.classList.remove('hidden');
+          document.body.classList.add('mirroring');
+          document.body.classList.remove('tools-visible');
         } else if (state.hasDex && !state.client) {
           showModeChooser(true);
         } else {
