@@ -189,12 +189,14 @@ function runAdb(bin, args, timeout = 15000) {
 let mdnsCache = { at: 0, devices: [] };
 async function mdnsDiscover(force = false) {
   const now = Date.now();
-  if (!force && now - mdnsCache.at < 4000) return mdnsCache.devices;
+  if (!force && mdnsCache.at && now - mdnsCache.at < 4000) return mdnsCache.devices;
   let devices = [];
   try {
-    devices = await discoverAdb({ timeoutMs: 1500 });
+    devices = await discoverAdb({ timeoutMs: 2500 });
   } catch {}
-  mdnsCache = { at: Date.now(), devices };
+  // Only cache successful scans. Caching an empty result makes a single
+  // dropped query look like "no phones nearby" for the next few seconds.
+  if (devices.length) mdnsCache = { at: Date.now(), devices };
   return devices;
 }
 

@@ -51,20 +51,32 @@ say ""
 # ------------------------------------------------- wireless debugging (no cable)
 # Android 11+ advertises _adb-tls-connect._tcp over mDNS. If the phone is
 # already reachable that way, we can connect without any cable.
+#
+# `adb mdns services` returns instantly with an empty list (it does not wait
+# for discovery), so prefer the local helper, which runs a real mDNS browse.
 find_mdns_phone() {
-    # adb's own mDNS browser is the most reliable source: it lists phones
-    # advertising either classic _adb._tcp or Wireless Debugging.
-    "$ADB_BIN" mdns services 2>/dev/null \
-        | awk '/_adb-tls-connect\._tcp|_adb\._tcp/ {print $3; exit}'
+    local target=""
+    if command -v curl >/dev/null 2>&1; then
+        target=$(curl -fsS --max-time 8 "http://127.0.0.1:8765/devices?refresh=1" 2>/dev/null \
+            | tr '}' '\n' \
+            | grep -o '"host":"[^"]*","port":[0-9]*' \
+            | head -1 \
+            | sed -E 's/.*"host":"([^"]*)","port":([0-9]+).*/\1:\2/')
+    fi
+    if [ -z "$target" ]; then
+        target=$("$ADB_BIN" mdns services 2>/dev/null \
+            | awk '/_adb-tls-connect\._tcp|_adb\._tcp/ {print $3; exit}')
+    fi
+    printf '%s' "$target"
 }
 
 say "🔍 Looking for a phone already on Wi-Fi…"
 MDNS_TARGET=""
-for i in $(seq 1 6); do
+for i in 1 2 3; do
     MDNS_TARGET=$(find_mdns_phone)
     [ -n "$MDNS_TARGET" ] && break
-    printf '   scanning… (%s/6)\r' "$i"
-    sleep 2
+    printf '   scanning… (%s/3)\r' "$i"
+    sleep 1
 done
 say ""
 if [ -n "$MDNS_TARGET" ]; then

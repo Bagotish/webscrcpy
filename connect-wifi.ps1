@@ -47,23 +47,35 @@ Say-OK "adb: $adb"
 Say ""
 
 # ------------------------------------------------- wireless debugging (no cable)
-Say "Looking for a phone already on Wi-Fi..."
-$mdnsTarget = $null
-for ($i = 1; $i -le 6; $i++) {
+# `adb mdns services` returns instantly with an empty list (it does not wait
+# for discovery), so prefer the local helper, which runs a real mDNS browse.
+function Find-MdnsPhone {
+    $target = $null
     try {
-        $lines = & $adb mdns services 2>$null
-        foreach ($line in $lines) {
-            # Columns: <instance>  _adb-tls-connect._tcp  <host:port>
-            if ($line -match '(_adb-tls-connect\._tcp|_adb\._tcp)\s+(\S+)') {
-                $mdnsTarget = $Matches[2]
-                break
-            }
+        $resp = Invoke-RestMethod -Uri "http://127.0.0.1:8765/devices?refresh=1" -TimeoutSec 8 -ErrorAction Stop
+        if ($resp.ok -and $resp.devices.Count -gt 0) {
+            $first = $resp.devices[0]
+            $target = "$($first.host):$($first.port)"
         }
     } catch {}
+    if (-not $target) {
+        try {
+            $lines = & $adb mdns services 2>$null
+            foreach ($line in $lines) {
+                if ($line -match '(_adb-tls-connect\._tcp|_adb\._tcp)\s+(\S+)') { $target = $Matches[2]; break }
+            }
+        } catch {}
+    }
+    return $target
+}
+
+Say "Looking for a phone already on Wi-Fi..."
+$mdnsTarget = $null
+for ($i = 1; $i -le 3; $i++) {
+    $mdnsTarget = Find-MdnsPhone
     if ($mdnsTarget) { break }
-    Write-Host "   scanning... ($i/6)" -NoNewline
-    Write-Host "`r" -NoNewline
-    Start-Sleep -Seconds 2
+    Write-Host "   scanning... ($i/3)"
+    Start-Sleep -Seconds 1
 }
 Say ""
 

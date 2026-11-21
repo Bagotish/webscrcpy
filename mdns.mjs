@@ -175,6 +175,7 @@ export function discoverAdb(opts = {}) {
       if (done) return;
       done = true;
       clearTimeout(timer);
+      if (retries) clearInterval(retries);
       try { active.close(); } catch {}
       resolve(assemble(records));
     };
@@ -191,6 +192,25 @@ export function discoverAdb(opts = {}) {
       for (const svc of services) sock.send(buildQuery(svc, 12), MDNS_PORT, MDNS_ADDR, () => {});
     };
 
+    // A single query is unreliable: Android's responder frequently drops the
+    // first packet from an unknown source, so the same scan that works
+    // standalone returns nothing when it runs inside a long-lived process.
+    // Repeat the query on a short cadence and keep the socket open.
+    let retries;
+    const startAsking = (sock) => {
+      ask(sock);
+      let elapsed = 0;
+      const step = 400;
+      retries = setInterval(() => {
+        elapsed += step;
+        if (elapsed >= timeoutMs - 100) {
+          clearInterval(retries);
+          return;
+        }
+        ask(sock);
+      }, step);
+    };
+
     socket.on('error', () => {
       // 5353 taken and not shareable — retry once from an ephemeral port.
       if (done) return;
@@ -199,12 +219,12 @@ export function discoverAdb(opts = {}) {
       active = retry;
       retry.on('error', finish);
       retry.on('message', onMessage);
-      retry.bind(0, () => ask(retry));
+      retry.bind(0, () => startAsking(retry));
     });
     socket.on('message', onMessage);
     // Android's mDNS responder only answers queries that originate from the
     // mDNS port itself, so bind 5353 (reuseAddr lets us share it with the OS).
-    socket.bind(MDNS_PORT, () => ask(socket));
+    socket.bind(MDNS_PORT, () => startAsking(socket));
   });
 }
 

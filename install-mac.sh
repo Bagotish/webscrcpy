@@ -209,6 +209,7 @@ export function discoverAdb(opts = {}) {
       if (done) return;
       done = true;
       clearTimeout(timer);
+      if (retries) clearInterval(retries);
       try { active.close(); } catch {}
       resolve(assemble(records));
     };
@@ -225,6 +226,25 @@ export function discoverAdb(opts = {}) {
       for (const svc of services) sock.send(buildQuery(svc, 12), MDNS_PORT, MDNS_ADDR, () => {});
     };
 
+    // A single query is unreliable: Android's responder frequently drops the
+    // first packet from an unknown source, so the same scan that works
+    // standalone returns nothing when it runs inside a long-lived process.
+    // Repeat the query on a short cadence and keep the socket open.
+    let retries;
+    const startAsking = (sock) => {
+      ask(sock);
+      let elapsed = 0;
+      const step = 400;
+      retries = setInterval(() => {
+        elapsed += step;
+        if (elapsed >= timeoutMs - 100) {
+          clearInterval(retries);
+          return;
+        }
+        ask(sock);
+      }, step);
+    };
+
     socket.on('error', () => {
       // 5353 taken and not shareable — retry once from an ephemeral port.
       if (done) return;
@@ -233,12 +253,12 @@ export function discoverAdb(opts = {}) {
       active = retry;
       retry.on('error', finish);
       retry.on('message', onMessage);
-      retry.bind(0, () => ask(retry));
+      retry.bind(0, () => startAsking(retry));
     });
     socket.on('message', onMessage);
     // Android's mDNS responder only answers queries that originate from the
     // mDNS port itself, so bind 5353 (reuseAddr lets us share it with the OS).
-    socket.bind(MDNS_PORT, () => ask(socket));
+    socket.bind(MDNS_PORT, () => startAsking(socket));
   });
 }
 
@@ -478,12 +498,14 @@ function runAdb(bin, args, timeout = 15000) {
 let mdnsCache = { at: 0, devices: [] };
 async function mdnsDiscover(force = false) {
   const now = Date.now();
-  if (!force && now - mdnsCache.at < 4000) return mdnsCache.devices;
+  if (!force && mdnsCache.at && now - mdnsCache.at < 4000) return mdnsCache.devices;
   let devices = [];
   try {
-    devices = await discoverAdb({ timeoutMs: 1500 });
+    devices = await discoverAdb({ timeoutMs: 2500 });
   } catch {}
-  mdnsCache = { at: Date.now(), devices };
+  // Only cache successful scans. Caching an empty result makes a single
+  // dropped query look like "no phones nearby" for the next few seconds.
+  if (devices.length) mdnsCache = { at: Date.now(), devices };
   return devices;
 }
 
@@ -765,6 +787,22 @@ fi
 mkdir -p "$HOME/Library/LaunchAgents"
 PLIST_PATH="$HOME/Library/LaunchAgents/com.webscrcpy.wifibridge.plist"
 
+# Remove any other WebScrcpy bridge agents. Older installs used different
+# labels (e.g. com.zulhilmi.webscrcpy-bridge); leaving them loaded means two
+# bridges race for port 8765 at login and the stale one can win, serving an
+# old copy of the code.
+for stale in "$HOME"/Library/LaunchAgents/*webscrcpy*.plist; do
+    [ -e "$stale" ] || continue
+    [ "$stale" = "$PLIST_PATH" ] && continue
+    case "$stale" in
+        *webscrcpy-bridge.plist|*webscrcpy.wifibridge.plist|*webscrcpy*wifi*.plist)
+            echo "🧹 Removing duplicate bridge agent: $(basename "$stale")"
+            launchctl unload "$stale" 2>/dev/null || true
+            rm -f "$stale"
+            ;;
+    esac
+done
+
 cat << EOF > "$PLIST_PATH"
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -791,14 +829,44 @@ cat << EOF > "$PLIST_PATH"
 </plist>
 EOF
 
-# Kill any existing bridge process and reload service
+# Kill any existing bridge process and reload service. The old process must die
+# before the new one binds 8765, otherwise the reload silently keeps serving the
+# previous (possibly stale) code.
 launchctl unload "$PLIST_PATH" 2>/dev/null || true
-kill -9 $(lsof -ti :8765 -ti :8766 2>/dev/null) 2>/dev/null || true
+for pid in $(lsof -ti :8765 -ti :8766 2>/dev/null); do
+    kill "$pid" 2>/dev/null || true
+done
+# Give the sockets a moment to be released before rebinding.
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+    lsof -ti :8765 >/dev/null 2>&1 || break
+    sleep 0.3
+done
+for pid in $(lsof -ti :8765 2>/dev/null); do
+    kill -9 "$pid" 2>/dev/null || true
+done
 launchctl load -w "$PLIST_PATH"
+
+# Confirm the new bridge actually answers before declaring success.
+BRIDGE_OK=""
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+    if curl -fsS --max-time 2 "http://127.0.0.1:8765/health" >/dev/null 2>&1 \
+        || curl -fsS --max-time 2 "http://127.0.0.1:8765/devices" >/dev/null 2>&1; then
+        BRIDGE_OK=1
+        break
+    fi
+    sleep 0.5
+done
 
 echo ""
 echo "=================================================="
-echo "🎉 WebScrcpy Wi-Fi Bridge is now actively running!"
-echo "It will automatically start whenever your Mac boots."
-echo "You can now return to WebScrcpy and connect wirelessly."
+if [ -n "$BRIDGE_OK" ]; then
+    echo "🎉 WebScrcpy Wi-Fi Bridge is now actively running!"
+    echo "It will automatically start whenever your Mac boots."
+    echo "You can now return to WebScrcpy and connect wirelessly."
+else
+    echo "⚠️  The bridge was installed but is not answering on port 8765."
+    echo "   Check the log: /tmp/webscrcpy-bridge.err"
+    echo "   Try: launchctl unload ~/Library/LaunchAgents/com.webscrcpy.wifibridge.plist"
+    echo "        launchctl load -w ~/Library/LaunchAgents/com.webscrcpy.wifibridge.plist"
+fi
 echo "=================================================="
