@@ -887,7 +887,12 @@ import {
         const unreachable = /ECONNREFUSED|timed out|EHOSTUNREACH|ENETUNREACH/i.test(message);
         const authTimeout = /did not authorize/i.test(message);
         await disconnect(true);
-        if (probe && (unreachable || authTimeout)) return false;
+        if (probe && (unreachable || authTimeout)) {
+          state.wifiError = authTimeout
+            ? message
+            : `${host}:${port} did not answer.`;
+          return false;
+        }
         console.error(err);
         if (authTimeout) {
           state.wifiError = message;
