@@ -780,7 +780,19 @@ CERT_DIR="$INSTALL_DIR/wifi-bridge-certs"
 mkdir -p "$CERT_DIR"
 if [ ! -f "$CERT_DIR/cert.pem" ] || [ ! -f "$CERT_DIR/key.pem" ]; then
     echo "🔒 Generating local SSL certificate for WSS..."
-    openssl req -x509 -newkey rsa:2048 -keyout "$CERT_DIR/key.pem" -out "$CERT_DIR/cert.pem" -days 365 -nodes -subj "/CN=127.0.0.1" -addext "subjectAltName=IP:127.0.0.1,DNS:localhost" >/dev/null 2>&1 || true
+    openssl req -x509 -newkey rsa:2048 -keyout "$CERT_DIR/key.pem" -out "$CERT_DIR/cert.pem" -days 3650 -nodes -subj "/CN=127.0.0.1" -addext "subjectAltName=IP:127.0.0.1,DNS:localhost" >/dev/null 2>&1 || true
+fi
+
+# Trust the certificate for this user. Without this, Chrome blocks the
+# bridge's https://127.0.0.1:8766 endpoint on HTTPS sites ("Failed to fetch")
+# even though the bridge is running, and the Nearby list stays empty.
+if [ -f "$CERT_DIR/cert.pem" ]; then
+    if security add-trusted-cert -r trustRoot -k "$HOME/Library/Keychains/login.keychain-db" "$CERT_DIR/cert.pem" >/dev/null 2>&1; then
+        echo "🔒 Certificate trusted — the browser can now reach the helper."
+    else
+        echo "⚠️  Could not auto-trust the certificate. If Nearby stays empty, open"
+        echo "   https://127.0.0.1:8766 once and click Advanced → Proceed."
+    fi
 fi
 
 # Setup LaunchAgent background daemon
