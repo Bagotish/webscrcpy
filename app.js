@@ -125,8 +125,8 @@ import {
       termOutput.appendChild(line);
       termOutput.scrollTop = termOutput.scrollHeight;
 
-      if (type === 'error') toggleSettings(true);
-      if (type === 'error' || type === 'warn') showErrorBanner(msg, type);
+      if (type === 'error' && !state.quiet) toggleSettings(true);
+      if (!state.quiet && (type === 'error' || type === 'warn')) showErrorBanner(msg, type);
     }
 
     let errorBannerTimer = null;
@@ -922,7 +922,8 @@ import {
       return Array.isArray(data.ports) ? data.ports : [];
     }
 
-    async function connectWifiAuto(host) {      logTerm(`Searching for ADB port on ${host}…`, 'system');
+    async function connectWifiAuto(host) {
+      logTerm(`Searching for ADB port on ${host}…`, 'system');
       const ports = await findPorts(host);
       if (!ports.length) {
         logTerm(`No ADB port found on ${host}. Enable Wireless debugging on the phone, or check the IP.`, 'warn');
@@ -1482,10 +1483,17 @@ import {
       try { last = JSON.parse(localStorage.getItem('webscrcpy-last-phone') || 'null'); } catch {}
       if (!last?.host || !isLan(last.host)) return;
       if (!browserReady()) return;
+      // Background attempt: stay silent so a sleeping phone does not greet every
+      // page load with a red banner. Manual connects still report loudly.
+      state.quiet = true;
       const phone = { serial: `${last.host}:${last.port || 5555}`, name: `Phone (${last.host})`, host: last.host, port: last.port || 5555 };
       logTerm(`Restoring last connection to ${last.host}…`, 'system');
-      const ok = await connectWifi(phone, 1, true);
-      if (!ok) await connectWifiAuto(last.host);
+      try {
+        const ok = await connectWifi(phone, 1, true);
+        if (!ok) await connectWifiAuto(last.host);
+      } finally {
+        state.quiet = false;
+      }
     }
 
     async function rememberWifiAddress(adb, serial, name) {
