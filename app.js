@@ -176,6 +176,7 @@ import {
         toggleSettings(false);
         toggleDevices(false);
         toggleChangelog(false);
+        guessPlatform();
       }
       downloadPanel.classList.toggle('closed', !open);
       btnDownloadHelper.classList.toggle('ring-2', open);
@@ -271,6 +272,44 @@ import {
         copyCommand('powershell -ExecutionPolicy Bypass -c "irm https://webscrcpy.vercel.app/connect-wifi.ps1 | iex"', txtCopyWinConnectCmd);
       });
     }
+
+    // Platform tabs: show one OS at a time instead of stacking four boxes.
+    function selectPlatform(os) {
+      const isMac = os === 'mac';
+      const tabMac = document.getElementById('tabMac');
+      const tabWin = document.getElementById('tabWin');
+      const paneMac = document.getElementById('paneMac');
+      const paneWin = document.getElementById('paneWin');
+      if (!tabMac || !tabWin || !paneMac || !paneWin) return;
+      const on = 'flex-1 px-3 py-1.5 rounded-full bg-zinc-800 text-zinc-100 font-medium transition flex items-center justify-center gap-1.5';
+      const off = 'flex-1 px-3 py-1.5 rounded-full text-zinc-400 hover:text-zinc-100 transition flex items-center justify-center gap-1.5';
+      tabMac.className = isMac ? on : off;
+      tabWin.className = isMac ? off : on;
+      tabMac.setAttribute('aria-selected', String(isMac));
+      tabWin.setAttribute('aria-selected', String(!isMac));
+      paneMac.classList.toggle('hidden', !isMac);
+      paneWin.classList.toggle('hidden', isMac);
+    }
+
+    // Pick the tab matching the visitor's OS the first time the panel opens.
+    let platformChosen = false;
+    function guessPlatform() {
+      if (platformChosen) return;
+      platformChosen = true;
+      const ua = navigator.userAgent || '';
+      selectPlatform(/Win/i.test(ua) ? 'win' : 'mac');
+    }
+
+    document.getElementById('tabMac')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      platformChosen = true;
+      selectPlatform('mac');
+    });
+    document.getElementById('tabWin')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      platformChosen = true;
+      selectPlatform('win');
+    });
 
     document.addEventListener('pointerdown', (e) => {
       if (!settingsPanel.contains(e.target) && !btnSettings.contains(e.target)) toggleSettings(false);

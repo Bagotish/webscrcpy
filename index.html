@@ -350,76 +350,106 @@
       </button>
     </div>
 
-    <!-- macOS Section -->
-    <div class="rounded-xl bg-zinc-950 border border-zinc-800/80 p-3 space-y-2">
-      <div class="flex items-center justify-between">
-        <span class="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
-          <i class="fa-brands fa-apple text-xs"></i> macOS — connect over Wi-Fi
-        </span>
-        <button id="btnCopyConnectCmd" type="button" class="text-[10px] text-zinc-300 hover:text-white px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-700 hover:border-zinc-500 transition flex items-center gap-1">
-          <i class="fa-solid fa-copy text-[9px]"></i> <span id="txtCopyConnectCmd">Copy</span>
-        </button>
-      </div>
-      <div class="font-mono text-[10px] text-zinc-300 bg-zinc-900/60 p-2 rounded-lg border border-zinc-800 break-all select-all">
-        <code id="connectCmd">curl -fsSL https://webscrcpy.vercel.app/connect-wifi.sh | bash</code>
-      </div>
-      <p class="text-[10px] text-zinc-500 leading-normal">
-        Paste in Terminal. Finds your phone over Wi-Fi, or walks you through the one-time USB handoff.
-      </p>
+    <!-- Platform tabs -->
+    <div class="flex items-center p-0.5 rounded-full bg-zinc-950 border border-zinc-800 text-xs" role="tablist">
+      <button type="button" id="tabMac" role="tab" aria-selected="true" class="flex-1 px-3 py-1.5 rounded-full bg-zinc-800 text-zinc-100 font-medium transition flex items-center justify-center gap-1.5">
+        <i class="fa-brands fa-apple text-[10px]"></i> macOS
+      </button>
+      <button type="button" id="tabWin" role="tab" aria-selected="false" class="flex-1 px-3 py-1.5 rounded-full text-zinc-400 hover:text-zinc-100 transition flex items-center justify-center gap-1.5">
+        <i class="fa-brands fa-windows text-[10px]"></i> Windows
+      </button>
     </div>
 
-    <!-- Windows Section -->
-    <div class="rounded-xl bg-zinc-950 border border-zinc-800/80 p-3 space-y-2">
-      <div class="flex items-center justify-between">
-        <span class="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
-          <i class="fa-brands fa-windows text-xs"></i> Windows — connect over Wi-Fi
-        </span>
-        <button id="btnCopyWinConnectCmd" type="button" class="text-[10px] text-zinc-300 hover:text-white px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-700 hover:border-zinc-500 transition flex items-center gap-1">
-          <i class="fa-solid fa-copy text-[9px]"></i> <span id="txtCopyWinConnectCmd">Copy</span>
-        </button>
+    <!-- ============ macOS pane ============ -->
+    <div id="paneMac" class="space-y-3.5">
+      <!-- Step 1 -->
+      <div class="rounded-xl bg-zinc-950 border border-zinc-800/80 p-3 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
+            <span class="w-4 h-4 rounded-full bg-zinc-800 text-zinc-400 text-[9px] font-semibold flex items-center justify-center shrink-0">1</span>
+            Connect phone over Wi-Fi
+          </span>
+          <button id="btnCopyConnectCmd" type="button" class="text-[10px] text-zinc-300 hover:text-white px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-700 hover:border-zinc-500 transition flex items-center gap-1 shrink-0">
+            <i class="fa-solid fa-copy text-[9px]"></i> <span id="txtCopyConnectCmd">Copy</span>
+          </button>
+        </div>
+        <div class="font-mono text-[10px] text-zinc-300 bg-zinc-900/60 p-2 rounded-lg border border-zinc-800 break-all select-all">
+          <code id="connectCmd">curl -fsSL https://webscrcpy.vercel.app/connect-wifi.sh | bash</code>
+        </div>
+        <p class="text-[10px] text-zinc-500 leading-normal">
+          Paste in Terminal. Finds your phone over Wi-Fi, or walks you through the one-time USB handoff.
+        </p>
       </div>
-      <div class="font-mono text-[10px] text-zinc-300 bg-zinc-900/60 p-2 rounded-lg border border-zinc-800 break-all select-all">
-        <code id="winConnectCmd">powershell -ExecutionPolicy Bypass -c "irm https://webscrcpy.vercel.app/connect-wifi.ps1 | iex"</code>
+
+      <!-- Step 2 -->
+      <div class="rounded-xl bg-zinc-950 border border-zinc-800/80 p-3 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
+            <span class="w-4 h-4 rounded-full bg-zinc-800 text-zinc-400 text-[9px] font-semibold flex items-center justify-center shrink-0">2</span>
+            Keep the helper running
+          </span>
+          <button id="btnCopyMacCmd" type="button" class="text-[10px] text-zinc-300 hover:text-white px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-700 hover:border-zinc-500 transition flex items-center gap-1 shrink-0">
+            <i class="fa-solid fa-copy text-[9px]"></i> <span id="txtCopyMacCmd">Copy</span>
+          </button>
+        </div>
+        <div class="font-mono text-[10px] text-zinc-300 bg-zinc-900/60 p-2 rounded-lg border border-zinc-800 break-all select-all">
+          <code id="macInstallCmd">curl -fsSL https://webscrcpy.vercel.app/install-mac.sh | bash</code>
+        </div>
+        <p class="text-[10px] text-zinc-500 leading-normal">
+          Installs the helper as a background service so phones appear under Nearby and it survives reboots.
+        </p>
       </div>
-      <p class="text-[10px] text-zinc-500 leading-normal">
-        Paste in PowerShell. Finds your phone over Wi-Fi, or walks you through the one-time USB handoff.
-      </p>
     </div>
 
-    <!-- Windows helper section -->
-    <div class="rounded-xl bg-zinc-950 border border-zinc-800/80 p-3 space-y-2">
-      <div class="flex items-center justify-between">
-        <span class="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
-          <i class="fa-brands fa-windows text-xs"></i> Windows — start the helper
-        </span>
-        <button id="btnCopyWinCmd" type="button" class="text-[10px] text-zinc-300 hover:text-white px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-700 hover:border-zinc-500 transition flex items-center gap-1">
-          <i class="fa-solid fa-copy text-[9px]"></i> <span id="txtCopyWinCmd">Copy</span>
-        </button>
+    <!-- ============ Windows pane ============ -->
+    <div id="paneWin" class="hidden space-y-3.5">
+      <!-- Step 1 -->
+      <div class="rounded-xl bg-zinc-950 border border-zinc-800/80 p-3 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
+            <span class="w-4 h-4 rounded-full bg-zinc-800 text-zinc-400 text-[9px] font-semibold flex items-center justify-center shrink-0">1</span>
+            Connect phone over Wi-Fi
+          </span>
+          <button id="btnCopyWinConnectCmd" type="button" class="text-[10px] text-zinc-300 hover:text-white px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-700 hover:border-zinc-500 transition flex items-center gap-1 shrink-0">
+            <i class="fa-solid fa-copy text-[9px]"></i> <span id="txtCopyWinConnectCmd">Copy</span>
+          </button>
+        </div>
+        <div class="font-mono text-[10px] text-zinc-300 bg-zinc-900/60 p-2 rounded-lg border border-zinc-800 break-all select-all">
+          <code id="winConnectCmd">powershell -ExecutionPolicy Bypass -c "irm https://webscrcpy.vercel.app/connect-wifi.ps1 | iex"</code>
+        </div>
+        <p class="text-[10px] text-zinc-500 leading-normal">
+          Paste in PowerShell. Finds your phone over Wi-Fi, or walks you through the one-time USB handoff.
+        </p>
+        <p class="text-[10px] text-zinc-600 leading-normal flex items-start gap-1">
+          <i class="fa-solid fa-circle-info text-[9px] mt-0.5 shrink-0"></i>
+          <span>Needs adb: <code class="font-mono text-zinc-500">winget install Google.PlatformTools</code></span>
+        </p>
       </div>
-      <div class="font-mono text-[10px] text-zinc-300 bg-zinc-900/60 p-2 rounded-lg border border-zinc-800 break-all select-all">
-        <code id="winInstallCmd">powershell -ExecutionPolicy Bypass -c "irm https://webscrcpy.vercel.app/install-windows.ps1 | iex"</code>
+
+      <!-- Step 2 -->
+      <div class="rounded-xl bg-zinc-950 border border-zinc-800/80 p-3 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
+            <span class="w-4 h-4 rounded-full bg-zinc-800 text-zinc-400 text-[9px] font-semibold flex items-center justify-center shrink-0">2</span>
+            Keep the helper running
+          </span>
+          <button id="btnCopyWinCmd" type="button" class="text-[10px] text-zinc-300 hover:text-white px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-700 hover:border-zinc-500 transition flex items-center gap-1 shrink-0">
+            <i class="fa-solid fa-copy text-[9px]"></i> <span id="txtCopyWinCmd">Copy</span>
+          </button>
+        </div>
+        <div class="font-mono text-[10px] text-zinc-300 bg-zinc-900/60 p-2 rounded-lg border border-zinc-800 break-all select-all">
+          <code id="winInstallCmd">powershell -ExecutionPolicy Bypass -c "irm https://webscrcpy.vercel.app/install-windows.ps1 | iex"</code>
+        </div>
+        <p class="text-[10px] text-zinc-500 leading-normal">
+          Installs the helper to start automatically with Windows so phones appear under Nearby.
+        </p>
       </div>
-      <p class="text-[10px] text-zinc-500 leading-normal">
-        Paste in PowerShell. Starts the helper so phones appear under Nearby.
-      </p>
     </div>
 
-    <div class="rounded-xl bg-zinc-950 border border-zinc-800/80 p-3 space-y-2">
-      <div class="flex items-center justify-between">
-        <span class="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
-          <i class="fa-solid fa-rotate text-xs"></i> macOS — keep helper running
-        </span>
-        <button id="btnCopyMacCmd" type="button" class="text-[10px] text-zinc-300 hover:text-white px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-700 hover:border-zinc-500 transition flex items-center gap-1">
-          <i class="fa-solid fa-copy text-[9px]"></i> <span id="txtCopyMacCmd">Copy</span>
-        </button>
-      </div>
-      <div class="font-mono text-[10px] text-zinc-300 bg-zinc-900/60 p-2 rounded-lg border border-zinc-800 break-all select-all">
-        <code id="macInstallCmd">curl -fsSL https://webscrcpy.vercel.app/install-mac.sh | bash</code>
-      </div>
-      <p class="text-[10px] text-zinc-500 leading-normal">
-        Installs the helper as a background service so it survives reboots.
-      </p>
-    </div>
+    <p class="text-[10px] text-zinc-600 leading-normal px-1 flex items-start gap-1.5">
+      <i class="fa-solid fa-lightbulb text-[9px] mt-0.5 shrink-0"></i>
+      <span>Run step 1 once per session. Step 2 is a one-time install.</span>
+    </p>
   </div>
 
   <!-- POPOUT CHANGELOG -->
@@ -443,6 +473,7 @@
         </div>
         <ul class="text-[11px] text-zinc-400 space-y-1 list-disc list-inside">
           <li><span class="font-medium text-zinc-300">Wi-Fi setup is a script now:</span> one command per platform — <code class="font-mono text-zinc-300">connect-wifi.sh</code> (macOS/Linux) or <code class="font-mono text-zinc-300">connect-wifi.ps1</code> (Windows). No zip files to download or unzip.</li>
+          <li><span class="font-medium text-zinc-300">Organised setup panel:</span> macOS and Windows are now tabs, each showing Step 1 (connect) and Step 2 (keep helper running). The tab matching your OS is selected automatically.</li>
           <li><span class="font-medium text-zinc-300">Works without a cable:</span> the script finds phones already advertising over mDNS and connects straight away.</li>
           <li><span class="font-medium text-zinc-300">Clearer empty state:</span> if the helper is offline, the panel says so instead of showing nothing.</li>
         </ul>
