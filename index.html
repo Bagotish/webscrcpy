@@ -417,11 +417,26 @@
     </div>
 
     <div class="max-h-80 overflow-y-auto term-scroll space-y-3 pr-1">
+      <!-- v1.5.0 -->
+      <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800/80 space-y-1.5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-zinc-200">v1.5.0</span>
+          <span class="text-[10px] text-zinc-500">21-11-2026</span>
+        </div>
+        <ul class="text-[11px] text-zinc-400 space-y-1 list-disc list-inside">
+          <li><span class="font-medium text-zinc-300">No more typing IPs:</span> the helper now does real mDNS discovery, so phones appear by name under <em>Nearby</em> — tap to connect.</li>
+          <li><span class="font-medium text-zinc-300">Survives IP changes:</span> saved phones are matched by serial, so a new router-assigned IP is picked up automatically.</li>
+          <li><span class="font-medium text-zinc-300">One-tap pairing:</span> the pairing address fills itself in and the helper runs <code class="font-mono text-zinc-300">adb pair</code> — just type the 6-digit code.</li>
+          <li><span class="font-medium text-zinc-300">Sleeping phone handling:</span> a 25s authorization timeout recovers the UI instead of hanging on "Connecting".</li>
+          <li><span class="font-medium text-zinc-300">Quieter background reconnect:</span> no red banner or panel popups when the phone is off.</li>
+        </ul>
+      </div>
+
       <!-- v1.4.0 -->
       <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800/80 space-y-1.5">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-medium text-zinc-200">v1.4.0</span>
-          <span class="text-[10px] text-zinc-500">21-11-2026</span>
+          <span class="text-xs font-medium text-zinc-500">v1.4.0</span>
+          <span class="text-[10px] text-zinc-600">21-11-2026</span>
         </div>
         <ul class="text-[11px] text-zinc-400 space-y-1 list-disc list-inside">
           <li><span class="font-medium text-zinc-300">Auto-detect ADB port:</span> No more checking the port — the helper finds the live port on your phone automatically (instant sweep, ~0.1s).</li>

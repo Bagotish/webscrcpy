@@ -46,6 +46,7 @@ import {
       wifiHost: null,
       wifiSerial: null,
       wifiPhones: [],
+      discovered: [],
       wifiHandoff: false,
       wifiError: '',
       resolution: '1080p',
@@ -163,6 +164,8 @@ import {
         toggleDownload(false);
         toggleChangelog(false);
         refreshDeviceList();
+        // Show nearby phones immediately — no IP typing needed.
+        refreshDiscovered(true).catch(() => {});
       }
       devicePanel.classList.toggle('closed', !open);
     }
@@ -534,7 +537,17 @@ import {
         }
         list.appendChild(note);
       }
-      if (!state.wifiPhones.length) {
+      // Phones announcing themselves over mDNS that are not saved yet.
+      const known = new Set(state.wifiPhones.flatMap((p) => [p.serial, p.host]));
+      const fresh = state.discovered.filter((d) => !known.has(d.serial) && !known.has(d.host));
+      if (fresh.length) {
+        const head = document.createElement('div');
+        head.className = 'flex items-center gap-2 px-1 pt-1 text-[10px] text-zinc-500';
+        head.innerHTML = '<i class="fa-solid fa-tower-broadcast text-emerald-500 text-[9px]"></i><span>Nearby — tap to connect</span>';
+        list.appendChild(head);
+        for (const device of fresh) list.appendChild(discoveredRow(device));
+      }
+      if (!state.wifiPhones.length && !fresh.length) {
         const empty = document.createElement('div');
         empty.className = 'px-2 py-2.5 text-[11px] space-y-2 rounded-xl bg-zinc-950/60 border border-zinc-800/80';
         
@@ -573,6 +586,56 @@ import {
       }
       logTerm(`Removed ${phone.name} (${phone.host}) from Wi-Fi list.`, 'system');
       renderWifiStatus();
+    }
+
+    // A phone found over mDNS that is not saved yet. One tap connects and saves.
+    function discoveredRow(device) {
+      const row = document.createElement('div');
+      row.className = 'w-full rounded-xl hover:bg-zinc-800 transition';
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.disabled = state.connecting;
+      button.className = 'w-full text-left px-3 py-2.5 rounded-xl disabled:opacity-40 transition flex items-center gap-3 min-w-0';
+      const icon = document.createElement('i');
+      icon.className = 'fa-solid fa-wifi text-sm w-4 text-center shrink-0 text-emerald-400';
+      const text = document.createElement('span');
+      text.className = 'min-w-0 flex-1';
+      const name = document.createElement('span');
+      name.className = 'block text-xs text-zinc-200 truncate';
+      name.textContent = device.name || 'Phone';
+      const detail = document.createElement('span');
+      detail.className = 'block text-[10px] font-mono text-zinc-500 truncate';
+      detail.textContent = `${device.host}:${device.port}${device.model ? ` · ${device.model}` : ''}`;
+      text.append(name, detail);
+      button.append(icon, text);
+      button.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const phone = {
+          serial: device.serial || `${device.host}:${device.port}`,
+          name: device.name || 'Phone',
+          host: device.host,
+          port: device.port,
+        };
+        useWifi(phone).catch((err) => {
+          console.error(err);
+          logTerm(`Wi-Fi error: ${err?.message ?? err}`, 'error');
+        });
+      });
+      row.appendChild(button);
+      return row;
+    }
+
+    // Populate the "Nearby" list. Silent: this runs on open and after failures.
+    async function refreshDiscovered(force = true) {
+      try {
+        const devices = await discoverDevices(force);
+        state.discovered = devices;
+        renderWifiStatus();
+        return devices;
+      } catch {
+        state.discovered = [];
+        return [];
+      }
     }
 
     function wifiRow(phone, duplicateName) {
@@ -717,27 +780,95 @@ import {
       }
     });
 
-    document.getElementById('btnPairDevice').addEventListener('click', () => {
+    document.getElementById('btnPairDevice').addEventListener('click', async () => {
       const form = document.getElementById('formPair');
       form.classList.toggle('hidden');
-      if (!form.classList.contains('hidden')) document.getElementById('inputPairAddr')?.focus();
+      if (form.classList.contains('hidden')) return;
+      const addrInput = document.getElementById('inputPairAddr');
+      addrInput?.focus();
+      // Android advertises a separate pairing port. If the bridge can see it,
+      // fill the address in so the user only has to type the 6-digit code.
+      const status = document.getElementById('pairStatus');
+      try {
+        const devices = await discoverDevices(true);
+        // The pairing service only exists while "Pair device with pairing code"
+        // is open on the phone, so only prefill from that — a connect port
+        // would just make pairing fail.
+        const pairing = devices.find((d) => d.kind === 'pairing');
+        status.classList.remove('hidden');
+        if (pairing) {
+          if (!addrInput.value.trim()) {
+            addrInput.value = `${pairing.host}:${pairing.port}`;
+            addrInput.dataset.auto = '1';
+            document.getElementById('inputPairCode')?.focus();
+          }
+          status.textContent = `Found ${pairing.name || 'phone'} — enter the 6-digit code shown on it.`;
+        } else if (devices.length) {
+          status.textContent = `Open "Pair device with pairing code" on ${devices[0].name || 'the phone'} and its address will fill in automatically.`;
+        }
+        // Keep watching briefly: the pairing service appears only once the
+        // dialog is open, so poll a few times and fill it in when it shows up.
+        if (!pairing) {
+          for (let i = 0; i < 6; i++) {
+            await new Promise((r) => setTimeout(r, 2000));
+            if (document.getElementById('formPair').classList.contains('hidden')) return;
+            if (addrInput.value.trim()) return;
+            try {
+              const again = await discoverDevices(true);
+              const found = again.find((d) => d.kind === 'pairing');
+              if (found) {
+                addrInput.value = `${found.host}:${found.port}`;
+                addrInput.dataset.auto = '1';
+                document.getElementById('inputPairCode')?.focus();
+                status.textContent = `Found ${found.name || 'phone'} — enter the 6-digit code shown on it.`;
+                return;
+              }
+            } catch {}
+          }
+        }
+      } catch {}
     });
 
     document.getElementById('formPair').addEventListener('submit', async (e) => {
       e.preventDefault();
       const addr = document.getElementById('inputPairAddr').value.trim();
+      const code = document.getElementById('inputPairCode').value.trim();
       const status = document.getElementById('pairStatus');
       status.classList.remove('hidden');
-      const pair = `${addr}`;
-      status.textContent = 'Copying adb pair command…';
-      try {
-        await navigator.clipboard.writeText(`adb pair ${pair}`);
-        status.textContent = 'Command copied. Paste it in Terminal, enter the code, then use the IP Wireless debugging shows.';
-        logTerm(`Run in Terminal: adb pair ${addr}`, 'system');
-      } catch {
-        status.textContent = `Run in Terminal: adb pair ${addr}`;
+
+      const match = addr.match(/^([^:]+):(\d{1,5})$/);
+      if (!match) {
+        status.textContent = 'Enter the pairing address as ip:port, e.g. 192.168.1.10:37123.';
+        return;
       }
-      logTerm('Browsers cannot run ADB pairing directly (WebUSB only). Use the command above, then connect via the Wireless debugging IP:port.', 'warn');
+      if (!/^\d{6}$/.test(code)) {
+        status.textContent = 'The pairing code is the 6-digit number shown on the phone.';
+        return;
+      }
+
+      const [, host, port] = match;
+      status.textContent = 'Pairing…';
+      try {
+        const res = await fetch(`${bridgeBase()}/pair?host=${encodeURIComponent(host)}&port=${port}&code=${encodeURIComponent(code)}`, { cache: 'no-store' });
+        const data = await res.json();
+        status.textContent = data.message || (data.ok ? 'Paired.' : 'Pairing failed.');
+        if (data.ok) {
+          logTerm(`Paired with ${host}. Finding the ADB port…`, 'success');
+          // Pairing rotates the connect port — discover it and connect in one go.
+          state.discovered = [];
+          if (await connectWifiAuto(host)) {
+            status.textContent = 'Paired and connected.';
+            document.getElementById('formPair').classList.add('hidden');
+          } else {
+            await refreshDiscovered(true);
+          }
+        } else {
+          logTerm(`Pairing failed: ${data.message || data.output || 'unknown error'}`, 'warn');
+        }
+      } catch (err) {
+        status.textContent = 'Could not reach the Wi-Fi bridge. Run the helper in Terminal first.';
+        logTerm(`Pairing error: ${err?.message ?? err}`, 'error');
+      }
     });
 
     async function connectDevice(device) {
@@ -798,7 +929,21 @@ import {
         return;
       }
       if (state.adb) await disconnect(true);
+      // The saved IP may be stale (DHCP moved the phone). Ask mDNS for the
+      // phone's current address before giving up on the saved one.
+      const current = await resolveCurrentAddress(phone);
+      if (current && (current.host !== phone.host || current.port !== phone.port)) {
+        logTerm(`${phone.name} moved to ${current.host}:${current.port}. Updating.`, 'system');
+        phone = { ...phone, host: current.host, port: current.port };
+        saveWifiPhone(phone);
+      }
       if (await connectWifi(phone, 1, true)) return;
+      // An auth timeout means the phone is asleep or the prompt was dismissed —
+      // rescanning ports cannot fix that, so surface it instead of waiting again.
+      if (/did not authorize/i.test(state.wifiError || '')) {
+        logTerm(state.wifiError, 'warn');
+        return;
+      }
       // Saved port may be stale (Wireless Debugging ports rotate) — auto-find it.
       if (await connectWifiAuto(phone.host)) return;
       const host = await enableWifiOverCable(phone);
@@ -923,12 +1068,36 @@ import {
       }
     }
 
+    function bridgeBase() {
+      return location.protocol === 'https:' ? 'https://127.0.0.1:8766' : 'http://127.0.0.1:8765';
+    }
+
     async function findPorts(host) {
-      const base = location.protocol === 'https:' ? 'https://127.0.0.1:8766' : 'http://127.0.0.1:8765';
-      const res = await fetch(`${base}/discover?host=${encodeURIComponent(host)}`, { cache: 'no-store' });
+      const res = await fetch(`${bridgeBase()}/discover?host=${encodeURIComponent(host)}`, { cache: 'no-store' });
       if (!res.ok) throw new Error('discovery failed');
       const data = await res.json();
       return Array.isArray(data.ports) ? data.ports : [];
+    }
+
+    // Ask the bridge which phones it can see over mDNS. This is the whole point:
+    // the phone announces its own name and IP, so the user never has to read an
+    // address off the screen.
+    async function discoverDevices(force = false) {
+      const res = await fetch(`${bridgeBase()}/devices${force ? '?refresh=1' : ''}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error('discovery failed');
+      const data = await res.json();
+      return Array.isArray(data.devices) ? data.devices : [];
+    }
+
+    // A saved phone may have moved to a new IP. Match it by serial (stable) and
+    // return the current address, so "Connect" keeps working across DHCP changes.
+    async function resolveCurrentAddress(phone) {
+      let devices;
+      try { devices = await discoverDevices(true); } catch { return null; }
+      const match = devices.find((d) =>
+        (phone.serial && d.serial && d.serial === phone.serial)
+        || (phone.name && d.name && d.name === phone.name));
+      return match ? { host: match.host, port: match.port, name: match.name } : null;
     }
 
     async function connectWifiAuto(host) {
@@ -1495,13 +1664,19 @@ import {
       // Background attempt: stay silent so a sleeping phone does not greet every
       // page load with a red banner. Manual connects still report loudly.
       state.quiet = true;
-      const phone = { serial: `${last.host}:${last.port || 5555}`, name: `Phone (${last.host})`, host: last.host, port: last.port || 5555 };
-      logTerm(`Restoring last connection to ${last.host}…`, 'system');
+      let phone = { serial: `${last.host}:${last.port || 5555}`, name: `Phone (${last.host})`, host: last.host, port: last.port || 5555 };
+      // DHCP may have moved the phone since last visit — mDNS knows the new address.
+      try {
+        const saved = state.wifiPhones.find((p) => p.host === last.host || p.serial === last.serial);
+        const current = await resolveCurrentAddress(saved || phone);
+        if (current) phone = { ...phone, host: current.host, port: current.port, name: current.name || phone.name };
+      } catch {}
+      logTerm(`Restoring last connection to ${phone.host}…`, 'system');
       try {
         const ok = await connectWifi(phone, 1, true);
         // An auth timeout means the phone is asleep or the prompt was dismissed:
         // scanning ports again cannot help, so leave it to the user.
-        if (!ok && !/did not authorize/i.test(state.wifiError || '')) await connectWifiAuto(last.host);
+        if (!ok && !/did not authorize/i.test(state.wifiError || '')) await connectWifiAuto(phone.host);
       } finally {
         state.quiet = false;
       }

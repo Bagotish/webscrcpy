@@ -5,7 +5,9 @@ import net from 'node:net';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execSync } from 'node:child_process';
+import { execSync, execFile, execFileSync } from 'node:child_process';
+import os from 'node:os';
+import { discoverAdb } from './mdns.mjs';
 
 const port = Number(process.env.WIFI_BRIDGE_PORT || 8765);
 const securePort = Number(process.env.WIFI_BRIDGE_TLS_PORT || 8766);
@@ -139,27 +141,55 @@ function accept(socket, tcp, readExact) {
   })();
 }
 
-async function mdnsDiscover() {
-  // Android advertises Wireless Debugging on _adb-tls-connect._tcp.
-  const found = [];
+// ---------------------------------------------------------------- adb helpers
+
+// Locate the adb binary. GUI/launchd processes get a minimal PATH, so probe the
+// usual install locations instead of trusting PATH alone.
+let adbPathCache;
+function findAdb() {
+  if (adbPathCache !== undefined) return adbPathCache;
+  const fromPath = String(process.env.PATH || '').split(':').filter(Boolean)
+    .map((dir) => path.join(dir, 'adb'));
+  const candidates = [
+    process.env.ADB_PATH,
+    ...fromPath,
+    '/opt/homebrew/bin/adb',
+    '/usr/local/bin/adb',
+    '/usr/bin/adb',
+    path.join(os.homedir(), 'homebrew/bin/adb'),
+    path.join(os.homedir(), 'Library/Android/sdk/platform-tools/adb'),
+    path.join(os.homedir(), 'Android/Sdk/platform-tools/adb'),
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    try {
+      execFileSync(candidate, ['version'], { stdio: 'ignore', timeout: 5000 });
+      adbPathCache = candidate;
+      return candidate;
+    } catch {}
+  }
+  adbPathCache = null;
+  return null;
+}
+
+function runAdb(bin, args, timeout = 15000) {
+  return new Promise((resolve) => {
+    execFile(bin, args, { timeout, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
+      resolve({ ok: !err, stdout: String(stdout || ''), stderr: String(stderr || '') });
+    });
+  });
+}
+
+// Cache discovery briefly so a page load does not trigger a query storm.
+let mdnsCache = { at: 0, devices: [] };
+async function mdnsDiscover(force = false) {
+  const now = Date.now();
+  if (!force && now - mdnsCache.at < 4000) return mdnsCache.devices;
+  let devices = [];
   try {
-    const { promises: dnsPromises } = await import('node:dns');
-    const services = await dnsPromises.resolveSrv('_adb-tls-connect._tcp.local');
-    for (const svc of services) {
-      let host = svc.name;
-      try {
-        const addrs = await dnsPromises.resolve4(host);
-        if (addrs.length) host = addrs[0];
-      } catch {
-        try {
-          const addrs = await dnsPromises.resolve6(host);
-          if (addrs.length) host = addrs[0];
-        } catch {}
-      }
-      found.push({ host, port: svc.port, name: svc.name });
-    }
+    devices = await discoverAdb({ timeoutMs: 1500 });
   } catch {}
-  return found;
+  mdnsCache = { at: Date.now(), devices };
+  return devices;
 }
 
 async function onRequest(request, response) {
@@ -175,7 +205,7 @@ async function onRequest(request, response) {
     response.end();
     return;
   }
-  if (request.method === 'GET' && (request.url.startsWith('/discover') || request.url.startsWith('/probe'))) {
+  if (request.method === 'GET' && (request.url.startsWith('/discover') || request.url.startsWith('/probe') || request.url.startsWith('/devices') || request.url.startsWith('/pair'))) {
     // These endpoints make the bridge dial arbitrary hosts: refuse any origin that
     // is not the app, otherwise a random website could use this Mac as a scanner.
     if (!allowedOrigin(origin)) {
@@ -184,27 +214,49 @@ async function onRequest(request, response) {
       return;
     }
   }
+  const replyJson = (status, body) => {
+    response.writeHead(status, {
+      'content-type': 'application/json',
+      'Access-Control-Allow-Origin': allowedOrigin(origin) ? (origin || '*') : 'null',
+      'Vary': 'Origin',
+      'Cache-Control': 'no-store',
+    });
+    response.end(JSON.stringify(body));
+  };
+
+  // List every phone this Mac can see over mDNS. This is what lets the app
+  // connect without the user ever reading an IP off the phone screen.
+  if (request.method === 'GET' && request.url.startsWith('/devices')) {
+    const query = new URL(request.url, 'http://localhost').searchParams;
+    const devices = await mdnsDiscover(query.get('refresh') === '1');
+    replyJson(200, {
+      ok: true,
+      devices: devices.map((d) => ({
+        name: d.name,
+        host: d.host,
+        port: d.port,
+        serial: d.serial || null,
+        model: d.model || null,
+        kind: d.kind,
+      })),
+    });
+    return;
+  }
+
   if (request.method === 'GET' && request.url.startsWith('/discover')) {
     const query = new URL(request.url, 'http://localhost').searchParams;
     const host = String(query.get('host') || '');
-    const reply = (status, body) => {
-      response.writeHead(status, {
-        'content-type': 'application/json',
-        'Access-Control-Allow-Origin': allowedOrigin(origin) ? (origin || '*') : 'null',
-        'Vary': 'Origin',
-      });
-      response.end(JSON.stringify(body));
-    };
+    const reply = replyJson;
     if (!isLanAddress(host)) {
       reply(400, { ok: false, message: 'Invalid host.' });
       return;
     }
     // 1) mDNS: Android broadcasts Wireless Debugging services. Fast path.
     const mdns = await mdnsDiscover();
-    const mdnsPorts = mdns.filter((m) => m.host === host || isLanAddress(m.host)).map((m) => ({ host: m.host, port: m.port }));
+    const mdnsDevices = mdns.map((d) => ({ name: d.name, host: d.host, port: d.port, serial: d.serial || null }));
     const quick = mdns.filter((m) => m.host === host).map((m) => m.port);
     if (quick.length) {
-      reply(200, { ok: true, host, ports: quick.sort((a, b) => a - b), source: 'mdns', devices: mdnsPorts });
+      reply(200, { ok: true, host, ports: quick.sort((a, b) => a - b), source: 'mdns', devices: mdnsDevices });
       return;
     }
     // 2) Probe 5555 plus the range Android uses for Wireless Debugging.
@@ -227,9 +279,49 @@ async function onRequest(request, response) {
       await Promise.all(ports.slice(i, i + batch).map(probe));
       if (open.length) break; // first live port is enough
     }
-    reply(200, { ok: true, host, ports: open.sort((a, b) => a - b), source: 'sweep', devices: mdnsPorts });
+    reply(200, { ok: true, host, ports: open.sort((a, b) => a - b), source: 'sweep', devices: mdnsDevices });
     return;
   }
+  // Pair with a phone using its 6-digit code. The bridge runs `adb pair` for
+  // you, so pairing never requires copying a command into Terminal.
+  if (request.method === 'GET' && request.url.startsWith('/pair')) {
+    const query = new URL(request.url, 'http://localhost').searchParams;
+    const host = String(query.get('host') || '');
+    const remotePort = Number(query.get('port'));
+    const code = String(query.get('code') || '').replace(/\D/g, '');
+    if (!isLanAddress(host) || !Number.isInteger(remotePort) || remotePort < 1 || remotePort > 65535) {
+      replyJson(400, { ok: false, message: 'Enter the pairing address shown on the phone (e.g. 192.168.1.10:37123).' });
+      return;
+    }
+    if (!/^\d{6}$/.test(code)) {
+      replyJson(400, { ok: false, message: 'The pairing code must be 6 digits.' });
+      return;
+    }
+    const adb = findAdb();
+    if (!adb) {
+      replyJson(200, {
+        ok: false,
+        needsAdb: true,
+        message: 'adb was not found. Install it with "brew install android-platform-tools", then retry.',
+      });
+      return;
+    }
+    const result = await runAdb(adb, ['pair', `${host}:${remotePort}`, code], 25000);
+    // adb pair starts the daemon, which would block WebUSB mirroring later.
+    // Stop it again so the browser can take over the device.
+    await runAdb(adb, ['kill-server'], 8000);
+    const output = `${result.stdout}${result.stderr}`.trim();
+    const ok = /Successfully paired/i.test(output);
+    replyJson(200, {
+      ok,
+      output,
+      message: ok
+        ? 'Paired. Now tap Connect — the port was found automatically.'
+        : output || 'Pairing failed. Check the code and that both devices are on the same network.',
+    });
+    return;
+  }
+
   if (request.method === 'GET' && request.url.startsWith('/probe')) {
     const query = new URL(request.url, 'http://localhost').searchParams;
     const host = String(query.get('host') || '');
