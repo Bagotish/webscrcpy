@@ -360,6 +360,19 @@ import {
       }
     });
 
+    // A focused button keeps :focus-within true forever, which pinned the header
+    // open after clicking Fullscreen. Only treat focus as "show" for keyboard users,
+    // and drop the class as soon as focus moves back into the page.
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') document.body.classList.add('using-keyboard');
+    });
+    document.addEventListener('pointerdown', () => document.body.classList.remove('using-keyboard'));
+    document.addEventListener('focusin', (e) => {
+      if (!document.body.classList.contains('using-keyboard') && e.target?.closest?.('header')) {
+        e.target.blur();
+      }
+    });
+
     videoCanvas?.addEventListener('dblclick', () => {
       if (document.fullscreenElement) {
         document.exitFullscreen().catch(() => {});
