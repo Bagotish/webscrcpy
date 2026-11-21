@@ -115,7 +115,25 @@ import {
       termOutput.scrollTop = termOutput.scrollHeight;
 
       if (type === 'error') toggleSettings(true);
+      if (type === 'error' || type === 'warn') showErrorBanner(msg, type);
     }
+
+    let errorBannerTimer = null;
+    function showErrorBanner(msg, type = 'error') {
+      const banner = document.getElementById('errorBanner');
+      const text = document.getElementById('errorBannerText');
+      if (!banner || !text) return;
+      text.textContent = msg.split('\n')[0];
+      banner.classList.remove('hidden');
+      banner.classList.toggle('bg-amber-950/90', type === 'warn');
+      banner.classList.toggle('border-amber-800/80', type === 'warn');
+      banner.querySelector('i')?.classList.toggle('text-amber-400', type === 'warn');
+      clearTimeout(errorBannerTimer);
+      errorBannerTimer = setTimeout(() => banner.classList.add('hidden'), 8000);
+    }
+    document.getElementById('btnErrorClose')?.addEventListener('click', () => {
+      document.getElementById('errorBanner')?.classList.add('hidden');
+    });
 
     function toggleSettings(open = settingsPanel.classList.contains('closed')) {
       if (open) {
@@ -868,8 +886,7 @@ import {
       return Array.isArray(data.ports) ? data.ports : [];
     }
 
-    async function connectWifiAuto(host) {
-      logTerm(`Searching for ADB port on ${host}…`, 'system');
+    async function connectWifiAuto(host) {      logTerm(`Searching for ADB port on ${host}…`, 'system');
       const ports = await findPorts(host);
       if (!ports.length) {
         logTerm(`No ADB port found on ${host}. Enable Wireless debugging on the phone, or check the IP.`, 'warn');
@@ -1403,13 +1420,26 @@ import {
       state.wifiHost = phone.host;
       state.wifiSerial = phone.serial;
       state.wifiPhones = [
-        phone,
+        { ...phone, lastUsed: Date.now() },
         ...state.wifiPhones.filter((item) => item.serial !== phone.serial && item.host !== phone.host),
       ].slice(0, 8);
       localStorage.setItem('webscrcpy-phones', JSON.stringify(state.wifiPhones));
+      localStorage.setItem('webscrcpy-last-phone', JSON.stringify({ host: phone.host, port: phone.port || 5555 }));
       logTerm(`Registered ${phone.name} at ${phone.host}`, 'system');
       renderWifiStatus();
       return phone.host;
+    }
+
+    // Silently try to restore the last working phone on page load.
+    async function autoReconnectLast() {
+      let last = null;
+      try { last = JSON.parse(localStorage.getItem('webscrcpy-last-phone') || 'null'); } catch {}
+      if (!last?.host || !isLan(last.host)) return;
+      if (!browserReady()) return;
+      const phone = { serial: `${last.host}:${last.port || 5555}`, name: `Phone (${last.host})`, host: last.host, port: last.port || 5555 };
+      logTerm(`Restoring last connection to ${last.host}…`, 'system');
+      const ok = await connectWifi(phone, 1, true);
+      if (!ok) await connectWifiAuto(last.host);
     }
 
     async function rememberWifiAddress(adb, serial, name) {
@@ -3275,3 +3305,8 @@ import {
         logTerm(`Clipboard access denied: ${err?.message ?? err}. Please allow clipboard permission in your browser.`, 'warn');
       }
     });
+
+    // Restore the last working phone shortly after load.
+    setTimeout(() => {
+      if (!state.adb && !state.connecting && !state.usbDevice) autoReconnectLast().catch(() => {});
+    }, 1200);

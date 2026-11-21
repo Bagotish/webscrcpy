@@ -102,6 +102,13 @@
 </head>
 <body class="h-full overflow-hidden selection:bg-zinc-800 selection:text-zinc-100">
 
+  <!-- ERROR BANNER -->
+  <div id="errorBanner" class="hidden fixed top-16 left-1/2 -translate-x-1/2 z-50 max-w-[92vw] sm:max-w-md px-3.5 py-2 rounded-xl bg-red-950/90 backdrop-blur-xl border border-red-800/80 shadow-2xl shadow-black/50 flex items-start gap-2">
+    <i class="fa-solid fa-triangle-exclamation text-red-400 text-xs mt-0.5"></i>
+    <span id="errorBannerText" class="text-[11px] text-red-100 leading-snug flex-1"></span>
+    <button id="btnErrorClose" type="button" class="text-red-400/70 hover:text-red-200 text-[10px] shrink-0"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+
   <!-- TOP BAR -->
   <header class="fixed top-0 inset-x-0 z-30 flex items-center justify-between px-5 py-2.5 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800/60">
     <div class="flex items-center gap-3 min-w-0">
@@ -403,6 +410,23 @@
     </div>
 
     <div class="max-h-80 overflow-y-auto term-scroll space-y-3 pr-1">
+      <!-- v1.4.0 -->
+      <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800/80 space-y-1.5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-zinc-200">v1.4.0</span>
+          <span class="text-[10px] text-zinc-500">21-11-2026</span>
+        </div>
+        <ul class="text-[11px] text-zinc-400 space-y-1 list-disc list-inside">
+          <li><span class="font-medium text-zinc-300">Auto-detect ADB port:</span> No more checking the port — the helper finds the live port on your phone automatically (instant sweep, ~0.1s).</li>
+          <li><span class="font-medium text-zinc-300">Auto-reconnect:</span> The last working phone reconnects on page load.</li>
+          <li><span class="font-medium text-zinc-300">Tailscale / VPN support:</span> 100.64.0.0/10 addresses are now accepted alongside LAN IPs.</li>
+          <li><span class="font-medium text-zinc-300">ip:port entry:</span> Manual IP field accepts Wireless Debugging ports (e.g. 192.168.1.10:37123).</li>
+          <li><span class="font-medium text-zinc-300">Clearer errors:</span> "Nothing listening / not reachable / timed out" with the exact next step.</li>
+          <li><span class="font-medium text-zinc-300">USB & wireless side by side:</span> Dedicated "Connect via USB" and "Pair Wireless Debugging" actions.</li>
+          <li><span class="font-medium text-zinc-300">Auto-hide UI:</span> Header and side tools fade away and reappear when you move to the screen edge.</li>
+          <li><span class="text-zinc-300">Connect helper</span> (<code class="font-mono text-zinc-300">connect-wifi.command</code>) does the whole USB → Wi-Fi handoff in one click.</li>
+        </ul>
+      </div>
       <!-- v1.3.0 -->
       <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800/80 space-y-1.5">
         <div class="flex items-center justify-between">

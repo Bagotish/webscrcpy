@@ -139,9 +139,32 @@ function accept(socket, tcp, readExact) {
   })();
 }
 
+async function mdnsDiscover() {
+  // Android advertises Wireless Debugging on _adb-tls-connect._tcp.
+  const found = [];
+  try {
+    const { promises: dnsPromises } = await import('node:dns');
+    const services = await dnsPromises.resolveSrv('_adb-tls-connect._tcp.local');
+    for (const svc of services) {
+      let host = svc.name;
+      try {
+        const addrs = await dnsPromises.resolve4(host);
+        if (addrs.length) host = addrs[0];
+      } catch {
+        try {
+          const addrs = await dnsPromises.resolve6(host);
+          if (addrs.length) host = addrs[0];
+        } catch {}
+      }
+      found.push({ host, port: svc.port, name: svc.name });
+    }
+  } catch {}
+  return found;
+}
+
 async function onRequest(request, response) {
   const origin = request.headers.origin || '';
-  if (request.method === 'OPTIONS') {
+  if (request.method === 'OPTIONS' || request.headers['access-control-request-private-network']) {
     response.writeHead(204, {
       'Access-Control-Allow-Origin': allowedOrigin(origin) ? origin : 'null',
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
@@ -167,9 +190,17 @@ async function onRequest(request, response) {
       reply(400, { ok: false, message: 'Invalid host.' });
       return;
     }
-    // Probe 5555 plus the range Android uses for Wireless Debugging.
+    // 1) mDNS: Android broadcasts Wireless Debugging services. Fast path.
+    const mdns = await mdnsDiscover();
+    const mdnsPorts = mdns.filter((m) => m.host === host || isLanAddress(m.host)).map((m) => ({ host: m.host, port: m.port }));
+    const quick = mdns.filter((m) => m.host === host).map((m) => m.port);
+    if (quick.length) {
+      reply(200, { ok: true, host, ports: quick.sort((a, b) => a - b), source: 'mdns', devices: mdnsPorts });
+      return;
+    }
+    // 2) Probe 5555 plus the range Android uses for Wireless Debugging.
     const ports = [5555];
-    for (let p = 35000; p <= 50000; p += 1) ports.push(p);
+    for (let p = 30000; p <= 50000; p += 1) ports.push(p);
     const open = [];
     const probe = (port) => new Promise((resolve) => {
       const s = net.connect({ host, port });
@@ -182,11 +213,12 @@ async function onRequest(request, response) {
       s.once('connect', () => { clearTimeout(t); done(true); });
       s.once('error', () => { clearTimeout(t); done(false); });
     });
-    const batch = 256;
+    const batch = 512;
     for (let i = 0; i < ports.length; i += batch) {
       await Promise.all(ports.slice(i, i + batch).map(probe));
+      if (open.length) break; // first live port is enough
     }
-    reply(200, { ok: true, host, ports: open.sort((a, b) => a - b) });
+    reply(200, { ok: true, host, ports: open.sort((a, b) => a - b), source: 'sweep', devices: mdnsPorts });
     return;
   }
   if (request.method === 'GET' && request.url.startsWith('/probe')) {
