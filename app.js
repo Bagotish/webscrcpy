@@ -19,6 +19,17 @@ import {
 
     // Must match the scrcpy version the bundled @yume-chan/adb-scrcpy targets (3.3.3).
     const SERVER_FILE = './scrcpy-server-v3.3.3';
+    const AUTH_TIMEOUT_MS = 25000;
+
+    function withTimeout(promise, ms, error) {
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(error), ms);
+        promise.then(
+          (value) => { clearTimeout(timer); resolve(value); },
+          (err) => { clearTimeout(timer); reject(err); },
+        );
+      });
+    }
     const MAX_SIZE = { '1080p': 2400, '720p': 1600, '480p': 1040 };
     const KEY_MAP = {
       Enter: 66, Backspace: 67, Delete: 112, Tab: 61, Escape: 4,
@@ -288,9 +299,12 @@ import {
     }
 
     function syncScreenTools() {
-      document.getElementById('screenTools').classList.toggle('hidden', videoCanvas.classList.contains('hidden'));
-      document.body.classList.toggle('mirroring', !videoCanvas.classList.contains('hidden'));
-      document.body.classList.remove('tools-visible');
+      const hidden = videoCanvas.classList.contains('hidden');
+      document.getElementById('screenTools').classList.toggle('hidden', hidden);
+      document.body.classList.toggle('mirroring', !hidden);
+      // Only clear the reveal state when mirroring stops — not on every relayout,
+      // otherwise resizing would slam the toolbar shut mid-hover.
+      if (hidden) document.body.classList.remove('tools-visible');
     }
 
     document.getElementById('btnFit').addEventListener('click', () => {
@@ -323,17 +337,26 @@ import {
     document.getElementById('screenTools')?.addEventListener('mouseenter', () => clearTimeout(toolsHideTimer));
 
     // Reveal header / tools when the pointer nears the screen edges (hover can't
-    // reach them while they are pointer-events:none).
+    // reach them while they are pointer-events:none). Debounced: the canvas emits
+    // pointermove continuously while the pointer moves.
+    let toolsRevealPending = false;
     document.addEventListener('pointermove', (e) => {
       if (!document.body.classList.contains('mirroring')) return;
-      clearTimeout(toolsHideTimer);
       const nearTop = e.clientY <= 56;
       const nearLeft = e.clientX <= 90;
       const anyHover = e.target.closest?.('#screenTools, header');
       if (nearTop || nearLeft || anyHover) {
+        clearTimeout(toolsHideTimer);
+        toolsRevealPending = false;
         document.body.classList.add('tools-visible');
-      } else {
-        toolsHideTimer = setTimeout(() => document.body.classList.remove('tools-visible'), 1200);
+      } else if (!toolsRevealPending) {
+        // Schedule the hide only once per pointer excursion.
+        toolsRevealPending = true;
+        clearTimeout(toolsHideTimer);
+        toolsHideTimer = setTimeout(() => {
+          toolsRevealPending = false;
+          document.body.classList.remove('tools-visible');
+        }, 1200);
       }
     });
 
@@ -1124,12 +1147,22 @@ import {
     }
 
     async function startAdbSession(connection, serial, link) {
-        logTerm('If prompted, tap "Allow" on the USB debugging prompt on your phone...', 'warn');
-        const transport = await AdbDaemonTransport.authenticate({
-          serial,
-          connection,
-          credentialStore,
-        });
+        logTerm(
+          link === 'wifi'
+            ? 'Waiting for the phone to authorize this computer. Check the phone screen for an "Allow" prompt...'
+            : 'If prompted, tap "Allow" on the USB debugging prompt on your phone...',
+          'warn',
+        );
+        // authenticate() never settles if the phone is silent — cap it so the UI can recover.
+        const transport = await withTimeout(
+          AdbDaemonTransport.authenticate({
+            serial,
+            connection,
+            credentialStore,
+          }),
+          AUTH_TIMEOUT_MS,
+          new Error(`The phone did not authorize this computer within ${Math.round(AUTH_TIMEOUT_MS / 1000)}s. Unlock the phone and tap "Allow" on the debugging prompt, then try again.`),
+        );
         const adb = new Adb(transport);
         state.adb = adb;
         state.link = link;
