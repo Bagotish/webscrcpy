@@ -96,6 +96,14 @@
       border-radius: 0 !important;
     }
     input[type=range] { accent-color: #e4e4e7; }
+    /* Mobile: keep side tools reachable and smaller */
+    @media (max-width: 640px) {
+      #screenTools { left: 0.25rem; padding: 0.25rem; gap: 0.125rem; }
+      #screenTools button { width: 1.75rem; height: 1.75rem; }
+      #downloadPanel, #changelogPanel, #devicePanel, #settingsPanel {
+        left: 0.5rem; right: 0.5rem; width: auto; max-width: none;
+      }
+    }
     .popout { transition: opacity .15s cubic-bezier(0.16, 1, 0.3, 1), transform .15s cubic-bezier(0.16, 1, 0.3, 1); }
     .popout.closed { opacity: 0; transform: translateY(-6px) scale(.98); pointer-events: none; }
   </style>
@@ -110,23 +118,23 @@
   </div>
 
   <!-- TOP BAR -->
-  <header class="fixed top-0 inset-x-0 z-30 flex items-center justify-between px-5 py-2.5 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800/60">
-    <div class="flex items-center gap-3 min-w-0">
-      <div class="flex items-center gap-2.5 min-w-0">
+  <header class="fixed top-0 inset-x-0 z-30 flex items-center justify-between gap-2 px-3 sm:px-5 py-2 sm:py-2.5 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800/60">
+    <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+      <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
         <span id="statusDot" class="w-2 h-2 rounded-full bg-zinc-600 shrink-0"></span>
-        <span id="txtDeviceName" class="text-xs font-medium text-zinc-400 truncate max-w-[200px] sm:max-w-none">No device connected</span>
+        <span id="txtDeviceName" class="text-xs font-medium text-zinc-400 truncate max-w-[110px] sm:max-w-[200px] md:max-w-none">No device connected</span>
       </div>
       <div id="viewModeSwitch" class="flex items-center p-0.5 rounded-full bg-zinc-900 border border-zinc-800 text-xs shrink-0">
-        <button type="button" id="btnModeMirror" class="px-3 py-1 rounded-full bg-zinc-800 text-zinc-100 font-medium transition flex items-center gap-1.5">
-          <i class="fa-solid fa-mobile-screen text-[10px]"></i><span>Mirror</span>
+        <button type="button" id="btnModeMirror" class="px-2 sm:px-3 py-1 rounded-full bg-zinc-800 text-zinc-100 font-medium transition flex items-center gap-1.5">
+          <i class="fa-solid fa-mobile-screen text-[10px]"></i><span class="hidden xs:inline sm:inline">Mirror</span>
         </button>
-        <button type="button" id="btnModeRemote" class="px-3 py-1 rounded-full text-zinc-400 hover:text-zinc-100 transition flex items-center gap-1.5">
-          <i class="fa-solid fa-qrcode text-[10px]"></i><span>Remote</span>
+        <button type="button" id="btnModeRemote" class="px-2 sm:px-3 py-1 rounded-full text-zinc-400 hover:text-zinc-100 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-qrcode text-[10px]"></i><span class="hidden sm:inline">Remote</span>
         </button>
       </div>
     </div>
 
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-1.5 sm:gap-2">
       <div class="hidden sm:flex items-center gap-2 text-[11px] font-mono text-zinc-500 mr-1">
         <span id="badgeRes">--</span>
         <span class="text-zinc-700">·</span>
@@ -148,14 +156,14 @@
         <i class="fa-solid fa-bell text-xs"></i>
         <span id="changelogBadge" class="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-zinc-300 ring-2 ring-zinc-950"></span>
       </button>
-      <button id="btnWebUsbConnect" class="h-8 px-3.5 rounded-full bg-zinc-100 text-zinc-900 hover:bg-white text-xs font-medium transition flex items-center gap-1.5 ml-1 shadow-sm">
-        <i class="fa-brands fa-usb text-[11px]"></i><span>Connect</span>
+      <button id="btnWebUsbConnect" class="h-8 px-2.5 sm:px-3.5 rounded-full bg-zinc-100 text-zinc-900 hover:bg-white text-xs font-medium transition flex items-center gap-1.5 ml-0.5 sm:ml-1 shadow-sm">
+        <i class="fa-brands fa-usb text-[11px]"></i><span class="hidden sm:inline">Connect</span>
       </button>
     </div>
   </header>
 
   <!-- SCREEN -->
-  <main class="relative h-full flex items-center justify-center px-6 pt-16 pb-6">
+  <main class="relative h-full flex items-center justify-center px-2 sm:px-6 pt-16 pb-2 sm:pb-6">
     <div id="dropOverlay" class="hidden absolute inset-4 z-50 flex flex-col items-center justify-center bg-zinc-950/85 backdrop-blur-md border border-dashed border-zinc-700/80 rounded-3xl pointer-events-none transition-all">
       <div class="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300 mb-2.5 shadow-lg">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
