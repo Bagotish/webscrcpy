@@ -152,6 +152,37 @@ function onRequest(request, response) {
     response.end();
     return;
   }
+  if (request.method === 'GET' && request.url.startsWith('/probe')) {
+    const query = new URL(request.url, 'http://localhost').searchParams;
+    const host = String(query.get('host') || '');
+    const remotePort = Number(query.get('port'));
+    const reply = (status, body) => {
+      response.writeHead(status, {
+        'content-type': 'application/json',
+        'Access-Control-Allow-Origin': allowedOrigin(origin) ? (origin || '*') : 'null',
+        'Vary': 'Origin',
+      });
+      response.end(JSON.stringify(body));
+    };
+    if (!isLanAddress(host) || !Number.isInteger(remotePort) || remotePort < 1 || remotePort > 65535) {
+      reply(400, { ok: false, reason: 'invalid', message: 'Invalid host/port.' });
+      return;
+    }
+    const sock = net.connect({ host, port: remotePort });
+    const finish = (result) => {
+      sock.destroy();
+      reply(200, result);
+    };
+    const timer = setTimeout(() => finish({ ok: false, reason: 'timeout', message: `${host}:${remotePort} timed out.` }), 4000);
+    sock.once('connect', () => { clearTimeout(timer); finish({ ok: true, reason: 'open', message: `${host}:${remotePort} is listening.` }); });
+    sock.once('error', (err) => {
+      clearTimeout(timer);
+      const code = err?.code || 'failed';
+      const reason = code === 'ECONNREFUSED' ? 'refused' : code === 'EHOSTUNREACH' || code === 'ENETUNREACH' ? 'unreachable' : 'error';
+      finish({ ok: false, reason, code, message: `${host}:${remotePort} ${code}.` });
+    });
+    return;
+  }
   response.writeHead(200, { 'content-type': 'text/plain' });
   response.end('webscrcpy wifi bridge\n');
 }

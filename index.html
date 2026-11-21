@@ -466,15 +466,24 @@
     </div>
     <div id="deviceList" class="space-y-1"></div>
     <button id="btnPairDevice" class="w-full h-8 rounded-xl border border-dashed border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 text-xs transition flex items-center justify-center gap-2">
-      <i class="fa-solid fa-plus text-[10px]"></i> Pair new device
+      <i class="fa-solid fa-link text-[10px]"></i> Pair Wireless Debugging
     </button>
+    <form id="formPair" class="hidden space-y-1.5 px-1 py-1">
+      <p class="text-[10px] text-zinc-500 leading-snug">Phone → Developer options → Wireless debugging → "Pair device with pairing code".</p>
+      <div class="flex gap-1.5">
+        <input type="text" id="inputPairAddr" placeholder="192.168.1.10:37123" class="flex-[2] min-w-0 bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1 text-xs text-zinc-200 font-mono placeholder:text-zinc-700 focus:outline-none focus:border-zinc-600">
+        <input type="text" id="inputPairCode" inputmode="numeric" maxlength="6" placeholder="123456" class="flex-1 min-w-0 bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1 text-xs text-zinc-200 font-mono tracking-widest placeholder:text-zinc-700 focus:outline-none focus:border-zinc-600">
+        <button type="submit" id="btnPairSubmit" class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium shrink-0">Pair</button>
+      </div>
+      <div id="pairStatus" class="text-[10px] text-zinc-500 font-mono hidden"></div>
+    </form>
     <div class="space-y-1.5 border-t border-zinc-800/80 pt-2">
       <div class="flex items-center justify-between px-1">
         <span class="text-[11px] text-zinc-400 font-medium">Wi-Fi Devices</span>
         <button id="btnToggleManualIp" type="button" class="text-[10px] text-zinc-400 hover:text-zinc-200 transition">+ Manual IP</button>
       </div>
       <form id="formManualIp" class="hidden flex gap-1.5 px-1 py-1">
-        <input type="text" id="inputManualIp" placeholder="192.168.1.10" class="flex-1 min-w-0 bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1 text-xs text-zinc-200 font-mono placeholder:text-zinc-700 focus:outline-none focus:border-zinc-600">
+        <input type="text" id="inputManualIp" placeholder="192.168.1.10 or ip:port" class="flex-1 min-w-0 bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1 text-xs text-zinc-200 font-mono placeholder:text-zinc-700 focus:outline-none focus:border-zinc-600">
         <button type="submit" class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium">Connect</button>
       </form>
       <div id="wifiList" class="space-y-1"></div>

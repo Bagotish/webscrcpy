@@ -449,7 +449,7 @@ import {
           serial: String(phone.serial || phone.host),
           name: String(phone.name || 'Phone'),
           host: phone.host,
-          port: 5555,
+          port: Number(phone.port) > 0 ? Number(phone.port) : 5555,
         });
       }
       state.wifiPhones = phones;
@@ -650,17 +650,27 @@ import {
       else toggleDevices();
     });
 
-    document.getElementById('btnPairDevice').addEventListener('click', async () => {
-      if (!webUsbReady() || state.connecting) return;
+    document.getElementById('btnPairDevice').addEventListener('click', () => {
+      const form = document.getElementById('formPair');
+      form.classList.toggle('hidden');
+      if (!form.classList.contains('hidden')) document.getElementById('inputPairAddr')?.focus();
+    });
+
+    document.getElementById('formPair').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const addr = document.getElementById('inputPairAddr').value.trim();
+      const status = document.getElementById('pairStatus');
+      status.classList.remove('hidden');
+      const pair = `${addr}`;
+      status.textContent = 'Copying adb pair command…';
       try {
-        const device = await AdbDaemonWebUsbDeviceManager.BROWSER.requestDevice();
-        if (!device) return;
-        await connectDevice(device);
-      } catch (err) {
-        if (err?.name === 'NotFoundError') return;
-        console.error(err);
-        logTerm(`Error: ${err?.message ?? err}`, 'error');
+        await navigator.clipboard.writeText(`adb pair ${pair}`);
+        status.textContent = 'Command copied. Paste it in Terminal, enter the code, then use the IP Wireless debugging shows.';
+        logTerm(`Run in Terminal: adb pair ${addr}`, 'system');
+      } catch {
+        status.textContent = `Run in Terminal: adb pair ${addr}`;
       }
+      logTerm('Browsers cannot run ADB pairing directly (WebUSB only). Use the command above, then connect via the Wireless debugging IP:port.', 'warn');
     });
 
     async function connectDevice(device) {
@@ -679,6 +689,7 @@ import {
         } catch (err) {
           if (err instanceof AdbDaemonWebUsbDevice.DeviceBusyError) {
             logTerm('Device is busy or in use by another program (adb server / scrcpy).\nClose scrcpy and run "adb kill-server" in your terminal, then try again.', 'error');
+            logTerm('Tip: `adb kill-server` only stops the background adb daemon — it does not affect your Wi-Fi connection.', 'system');
             return;
           }
           throw err;
@@ -765,7 +776,7 @@ import {
 
     async function connectWifi(phone, attempts = 1, probe = false) {
       const host = phone?.host;
-      const port = 5555;
+      const port = Number(phone?.port) > 0 ? Number(phone.port) : 5555;
       if (!browserReady() || state.connecting || state.adb) return false;
       if (!host || !isLan(host)) {
         logTerm('No Wi-Fi address found for this phone yet. Connect with a cable first.', 'warn');
@@ -808,10 +819,17 @@ import {
         await disconnect(true);
         if (probe && unreachable) return false;
         console.error(err);
-        state.wifiError = unreachable
-          ? `${phone.name} did not answer at ${host}. Plug in the cable, close adb on the Mac (adb kill-server), then tap this phone again.`
-          : message;
-        logTerm(`Wi-Fi error: ${state.wifiError}`, 'warn');
+        if (unreachable) {
+          const diag = await diagnoseHost(host, port);
+          state.wifiError = diag;
+          logTerm(`Wi-Fi error: ${diag}`, 'warn');
+          if (/refused|not listening/i.test(diag)) {
+            logTerm('Fix: enable Wireless debugging on the phone (Developer options), or plug in USB and run "adb tcpip 5555".', 'system');
+          }
+        } else {
+          state.wifiError = message;
+          logTerm(`Wi-Fi error: ${message}`, 'warn');
+        }
         if (/Wi-Fi bridge/i.test(message)) {
           logTerm('Wi-Fi Bridge Helper is required for wireless connection.', 'warn');
           logTerm('Mac: Run "curl -fsSL https://webscrcpy.vercel.app/install-mac.sh | bash" in Terminal.', 'system');
@@ -824,6 +842,22 @@ import {
       } finally {
         state.connecting = false;
         updateConnectionStatus();
+      }
+    }
+
+    async function diagnoseHost(host, port) {
+      const base = location.protocol === 'https:' ? 'https://127.0.0.1:8766' : 'http://127.0.0.1:8765';
+      try {
+        const res = await fetch(`${base}/probe?host=${encodeURIComponent(host)}&port=${port}`, { cache: 'no-store' });
+        if (!res.ok) throw new Error('probe failed');
+        const r = await res.json();
+        if (r.ok) return `${host}:${port} accepts connections but ADB handshake was rejected. The phone may need to be re-approved.`;
+        if (r.reason === 'refused') return `Nothing is listening at ${host}:${port}. The phone is not running ADB over Wi-Fi (enable Wireless debugging, or run "adb tcpip 5555" over USB once).`;
+        if (r.reason === 'timeout') return `${host}:${port} does not respond. The phone may be asleep, on another network, or the port is wrong.`;
+        if (r.reason === 'unreachable') return `${host} is not reachable from this computer. Check that both are on the same network / VPN.`;
+        return `${host}:${port} failed (${r.code || r.reason}).`;
+      } catch {
+        return `${host}:${port} did not answer. Ensure the Wi-Fi bridge is running, then verify the phone is listening on port ${port}.`;
       }
     }
 
@@ -3156,12 +3190,15 @@ import {
       });
       formManualIp.addEventListener('submit', (e) => {
         e.preventDefault();
-        const ip = inputManualIp.value.trim();
-        if (!isLan(ip)) {
-          logTerm('Please enter a valid local IP address (e.g. 192.168.1.50).', 'warn');
+        const raw = inputManualIp.value.trim();
+        const match = raw.match(/^([0-9.]+)(?::(\d{1,5}))?$/);
+        const ip = match?.[1] || '';
+        const port = match?.[2] ? Number(match[2]) : 5555;
+        if (!isLan(ip) || port < 1 || port > 65535) {
+          logTerm('Enter an IP or IP:port, e.g. 192.168.1.50 or 192.168.1.50:37123 (Wireless debugging ports are random).', 'warn');
           return;
         }
-        const phone = { serial: ip, name: `Phone (${ip})`, host: ip, port: 5555 };
+        const phone = { serial: `${ip}:${port}`, name: `Phone (${ip}:${port})`, host: ip, port };
         saveWifiPhone(phone);
         formManualIp.classList.add('hidden');
         inputManualIp.value = '';
