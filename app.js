@@ -625,9 +625,13 @@ import {
         note.append(head, desc, btnHelper);
         list.appendChild(note);
       }
-      // Phones announcing themselves over mDNS that are not saved yet.
-      const known = new Set(state.wifiPhones.flatMap((p) => [p.serial, p.host]));
-      const fresh = state.discovered.filter((d) => !known.has(d.serial) && !known.has(d.host));
+      // Phones announcing themselves over mDNS. A saved entry with a stale IP
+      // must not hide the live row: match only on identical host:port.
+      const known = new Set(
+        state.wifiPhones.map((p) => `${p.host}:${p.port || 5555}`)
+      );
+      const fresh = state.discovered.filter((d) =>
+        !known.has(`${d.host}:${d.port}`));
       if (fresh.length) {
         const head = document.createElement('div');
         head.className = 'flex items-center gap-2 px-1 pt-1 text-[10px] text-zinc-500';
@@ -719,6 +723,7 @@ import {
         const devices = await discoverDevices(force);
         state.discovered = devices;
         state.discoverError = '';
+        healSavedPhones(devices);
         renderWifiStatus();
         return devices;
       } catch {
@@ -726,6 +731,36 @@ import {
         state.discoverError = 'unreachable';
         renderWifiStatus();
         return [];
+      }
+    }
+
+    // A saved phone's IP goes stale after every DHCP change or reboot, which
+    // made it look like a dead entry AND suppressed the Nearby row for the
+    // same phone. mDNS knows the current address — write it back.
+    function healSavedPhones(devices) {
+      if (!devices.length) return;
+      let changed = false;
+      for (const phone of state.wifiPhones) {
+        const match = devices.find((d) =>
+          (phone.serial && d.serial && phone.serial === d.serial)
+          || (phone.name && d.name && phone.name === d.name)
+          || (phone.model && d.model && phone.model === d.model)
+          // Old entries were saved as "samsung SM-S928B" etc.; the model
+          // substring is the stable part of those names.
+          || (d.model && phone.name && phone.name.includes(d.model))
+          || (d.name && phone.serial === `${d.host}:${d.port}`));
+        if (match && (phone.host !== match.host || phone.port !== match.port)) {
+          phone.host = match.host;
+          phone.port = match.port;
+          if (match.serial) phone.serial = match.serial;
+          if (match.name && (/^Phone \(/.test(phone.name) || /samsung|SM-/i.test(phone.name))) {
+            phone.name = match.name;
+          }
+          changed = true;
+        }
+      }
+      if (changed) {
+        localStorage.setItem('webscrcpy-phones', JSON.stringify(state.wifiPhones));
       }
     }
 
