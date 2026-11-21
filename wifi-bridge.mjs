@@ -175,6 +175,15 @@ async function onRequest(request, response) {
     response.end();
     return;
   }
+  if (request.method === 'GET' && (request.url.startsWith('/discover') || request.url.startsWith('/probe'))) {
+    // These endpoints make the bridge dial arbitrary hosts: refuse any origin that
+    // is not the app, otherwise a random website could use this Mac as a scanner.
+    if (!allowedOrigin(origin)) {
+      response.writeHead(403, { 'content-type': 'application/json', 'Vary': 'Origin' });
+      response.end(JSON.stringify({ ok: false, message: 'Origin not allowed.' }));
+      return;
+    }
+  }
   if (request.method === 'GET' && request.url.startsWith('/discover')) {
     const query = new URL(request.url, 'http://localhost').searchParams;
     const host = String(query.get('host') || '');
