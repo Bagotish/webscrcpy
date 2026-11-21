@@ -139,7 +139,7 @@ function accept(socket, tcp, readExact) {
   })();
 }
 
-function onRequest(request, response) {
+async function onRequest(request, response) {
   const origin = request.headers.origin || '';
   if (request.method === 'OPTIONS') {
     response.writeHead(204, {
@@ -150,6 +150,43 @@ function onRequest(request, response) {
       'Vary': 'Origin',
     });
     response.end();
+    return;
+  }
+  if (request.method === 'GET' && request.url.startsWith('/discover')) {
+    const query = new URL(request.url, 'http://localhost').searchParams;
+    const host = String(query.get('host') || '');
+    const reply = (status, body) => {
+      response.writeHead(status, {
+        'content-type': 'application/json',
+        'Access-Control-Allow-Origin': allowedOrigin(origin) ? (origin || '*') : 'null',
+        'Vary': 'Origin',
+      });
+      response.end(JSON.stringify(body));
+    };
+    if (!isLanAddress(host)) {
+      reply(400, { ok: false, message: 'Invalid host.' });
+      return;
+    }
+    // Probe 5555 plus the range Android uses for Wireless Debugging.
+    const ports = [5555];
+    for (let p = 35000; p <= 50000; p += 1) ports.push(p);
+    const open = [];
+    const probe = (port) => new Promise((resolve) => {
+      const s = net.connect({ host, port });
+      const done = (hit) => {
+        s.destroy();
+        if (hit) open.push(port);
+        resolve();
+      };
+      const t = setTimeout(() => done(false), 1200);
+      s.once('connect', () => { clearTimeout(t); done(true); });
+      s.once('error', () => { clearTimeout(t); done(false); });
+    });
+    const batch = 256;
+    for (let i = 0; i < ports.length; i += batch) {
+      await Promise.all(ports.slice(i, i + batch).map(probe));
+    }
+    reply(200, { ok: true, host, ports: open.sort((a, b) => a - b) });
     return;
   }
   if (request.method === 'GET' && request.url.startsWith('/probe')) {

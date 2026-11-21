@@ -745,6 +745,8 @@ import {
       }
       if (state.adb) await disconnect(true);
       if (await connectWifi(phone, 1, true)) return;
+      // Saved port may be stale (Wireless Debugging ports rotate) — auto-find it.
+      if (await connectWifiAuto(phone.host)) return;
       const host = await enableWifiOverCable(phone);
       if (host) await connectWifi({ ...phone, host }, 8);
       else await connectWifi(phone, 1);
@@ -856,6 +858,33 @@ import {
         state.connecting = false;
         updateConnectionStatus();
       }
+    }
+
+    async function findPorts(host) {
+      const base = location.protocol === 'https:' ? 'https://127.0.0.1:8766' : 'http://127.0.0.1:8765';
+      const res = await fetch(`${base}/discover?host=${encodeURIComponent(host)}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error('discovery failed');
+      const data = await res.json();
+      return Array.isArray(data.ports) ? data.ports : [];
+    }
+
+    async function connectWifiAuto(host) {
+      logTerm(`Searching for ADB port on ${host}…`, 'system');
+      const ports = await findPorts(host);
+      if (!ports.length) {
+        logTerm(`No ADB port found on ${host}. Enable Wireless debugging on the phone, or check the IP.`, 'warn');
+        return false;
+      }
+      logTerm(`Found port(s): ${ports.join(', ')}`, 'system');
+      for (const port of ports) {
+        const phone = { serial: `${host}:${port}`, name: `Phone (${host}:${port})`, host, port };
+        if (await connectWifi(phone, 1, true)) {
+          saveWifiPhone(phone);
+          return true;
+        }
+      }
+      logTerm('Found open ports but ADB handshake failed. Re-pair or re-approve on the phone.', 'warn');
+      return false;
     }
 
     async function diagnoseHost(host, port) {
@@ -3215,7 +3244,7 @@ import {
         saveWifiPhone(phone);
         formManualIp.classList.add('hidden');
         inputManualIp.value = '';
-        useWifi(phone).catch((err) => {
+        (match[2] ? useWifi(phone) : connectWifiAuto(ip)).catch((err) => {
           console.error(err);
           logTerm(`Wi-Fi error: ${err?.message ?? err}`, 'error');
         });
