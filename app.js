@@ -885,10 +885,14 @@ import {
         try { socket?.close(); } catch {}
         const message = String(err?.message ?? err);
         const unreachable = /ECONNREFUSED|timed out|EHOSTUNREACH|ENETUNREACH/i.test(message);
+        const authTimeout = /did not authorize/i.test(message);
         await disconnect(true);
-        if (probe && unreachable) return false;
+        if (probe && (unreachable || authTimeout)) return false;
         console.error(err);
-        if (unreachable) {
+        if (authTimeout) {
+          state.wifiError = message;
+          logTerm(`Wi-Fi error: ${message}`, 'warn');
+        } else if (unreachable) {
           const diag = await diagnoseHost(host, port);
           state.wifiError = diag;
           logTerm(`Wi-Fi error: ${diag}`, 'warn');
@@ -903,8 +907,8 @@ import {
           logTerm('Wi-Fi Bridge Helper is required for wireless connection.', 'warn');
           logTerm('Mac: Run "curl -fsSL https://webscrcpy.vercel.app/install-mac.sh | bash" in Terminal.', 'system');
           logTerm('Windows: Run \'powershell -ExecutionPolicy Bypass -c "irm https://webscrcpy.vercel.app/install-windows.ps1 | iex"\' in Terminal or CMD.', 'system');
-          toggleDownload(true);
-        } else {
+          if (!state.quiet) toggleDownload(true);
+        } else if (!state.quiet) {
           toggleDevices(true);
         }
         return false;
@@ -1490,7 +1494,9 @@ import {
       logTerm(`Restoring last connection to ${last.host}…`, 'system');
       try {
         const ok = await connectWifi(phone, 1, true);
-        if (!ok) await connectWifiAuto(last.host);
+        // An auth timeout means the phone is asleep or the prompt was dismissed:
+        // scanning ports again cannot help, so leave it to the user.
+        if (!ok && !/did not authorize/i.test(state.wifiError || '')) await connectWifiAuto(last.host);
       } finally {
         state.quiet = false;
       }
