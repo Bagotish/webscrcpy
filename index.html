@@ -48,8 +48,7 @@
       opacity: 0 !important;
       pointer-events: none !important;
       transition: opacity .15s ease;
-    }
-    body.is-fullscreen header:hover,
+    }    body.is-fullscreen header:hover,
     body.is-fullscreen.using-keyboard header:focus-within,
     body.is-fullscreen.tools-visible header {
       opacity: 1 !important;
@@ -309,7 +308,7 @@
   </main>
 
   <!-- SCREEN FLOATING DOCK -->
-  <div id="screenTools" class="hidden fixed left-4 top-1/2 -translate-y-1/2 z-20 flex flex-col p-1.5 rounded-2xl bg-zinc-900/80 backdrop-blur-xl border border-zinc-800/80 shadow-2xl shadow-black/50 gap-1 transition-opacity duration-200">
+  <div id="screenTools" class="hidden fixed left-4 top-1/2 -translate-y-1/2 z-20 flex flex-col p-1.5 rounded-2xl bg-zinc-900/80 backdrop-blur-xl border border-zinc-800/80 shadow-2xl shadow-black/50 gap-1">
     <button id="btnToolRemote" type="button" title="Toggle Remote" class="w-8 h-8 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center text-xs">
       <i class="fa-solid fa-qrcode"></i>
     </button>
