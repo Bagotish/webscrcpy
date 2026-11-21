@@ -650,6 +650,19 @@ import {
       else toggleDevices();
     });
 
+    document.getElementById('btnUsbConnect').addEventListener('click', async () => {
+      if (!webUsbReady() || state.connecting) return;
+      try {
+        const device = await AdbDaemonWebUsbDeviceManager.BROWSER.requestDevice();
+        if (!device) return;
+        await connectDevice(device);
+      } catch (err) {
+        if (err?.name === 'NotFoundError') return;
+        console.error(err);
+        logTerm(`Error: ${err?.message ?? err}`, 'error');
+      }
+    });
+
     document.getElementById('btnPairDevice').addEventListener('click', () => {
       const form = document.getElementById('formPair');
       form.classList.toggle('hidden');
