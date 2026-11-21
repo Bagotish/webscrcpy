@@ -1,3 +1,13 @@
 .vercel
 wifi-bridge-certs/
 .continue/
+
+# generated guide media (screenshots, frames, video)
+guide-assets/frames/
+guide-assets/build/
+guide-assets/captions/
+guide-assets/*.png
+guide-assets/*.jpg
+guide-assets/timeline.json
+*.mp4
+*.pdf
