@@ -1306,7 +1306,8 @@ import {
       if (parts.length !== 4 || parts.some((n) => n > 255)) return false;
       const [a, b, c, d] = parts;
       if (d === 0 || d === 255 || a === 0 || a === 127) return false;
-      return a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31);
+      return a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31)
+        || (a === 100 && b >= 64 && b <= 127); // Tailscale / CGNAT
     }
 
     function lanAddress(text, wlanOnly = false) {
