@@ -437,17 +437,23 @@ function accept(socket, tcp, readExact) {
 let adbPathCache;
 function findAdb() {
   if (adbPathCache !== undefined) return adbPathCache;
-  const fromPath = String(process.env.PATH || '').split(':').filter(Boolean)
-    .map((dir) => path.join(dir, 'adb'));
+  const exe = process.platform === 'win32' ? 'adb.exe' : 'adb';
+  const fromPath = String(process.env.PATH || '').split(path.delimiter).filter(Boolean)
+    .map((dir) => path.join(dir, exe));
+  const home = os.homedir();
   const candidates = [
     process.env.ADB_PATH,
     ...fromPath,
     '/opt/homebrew/bin/adb',
     '/usr/local/bin/adb',
     '/usr/bin/adb',
-    path.join(os.homedir(), 'homebrew/bin/adb'),
-    path.join(os.homedir(), 'Library/Android/sdk/platform-tools/adb'),
-    path.join(os.homedir(), 'Android/Sdk/platform-tools/adb'),
+    path.join(home, 'homebrew/bin/adb'),
+    path.join(home, 'Library/Android/sdk/platform-tools/adb'),
+    path.join(home, 'Android/Sdk/platform-tools/adb'),
+    process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Android/Sdk/platform-tools/adb.exe'),
+    process.env.USERPROFILE && path.join(process.env.USERPROFILE, 'AppData/Local/Android/Sdk/platform-tools/adb.exe'),
+    process.env.ProgramFiles && path.join(process.env.ProgramFiles, 'Android/platform-tools/adb.exe'),
+    'C:\\Android\\platform-tools\\adb.exe',
   ].filter(Boolean);
   for (const candidate of candidates) {
     try {

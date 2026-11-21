@@ -13,8 +13,14 @@ Mirror and control your Android phone from a web browser — no app install, wor
 
 1. **Connect over Wi-Fi — one command** (no downloads):
 
+   **macOS / Linux:**
    ```bash
    curl -fsSL https://webscrcpy.vercel.app/connect-wifi.sh | bash
+   ```
+
+   **Windows (PowerShell):**
+   ```powershell
+   powershell -ExecutionPolicy Bypass -c "irm https://webscrcpy.vercel.app/connect-wifi.ps1 | iex"
    ```
 
    It looks for a phone already on Wi-Fi and connects to it. If nothing is
@@ -37,8 +43,10 @@ Mirror and control your Android phone from a web browser — no app install, wor
 4. **USB**: plug in, open the site, tap your phone.
 
 5. **Wi-Fi (plug & play)**: plug the phone in via USB once and run the
-   `connect-wifi.sh` command above — it switches the phone to wireless mode and
-   tells you when to unplug. On Windows, use `start-windows.bat`.
+   `connect-wifi` command above — it switches the phone to wireless mode and
+   tells you when to unplug.
+
+> Windows users need `adb` on PATH: `winget install Google.PlatformTools`.
 
 ## Wireless without typing an IP
 

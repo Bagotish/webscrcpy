@@ -372,6 +372,24 @@
     <div class="rounded-xl bg-zinc-950 border border-zinc-800/80 p-3 space-y-2">
       <div class="flex items-center justify-between">
         <span class="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
+          <i class="fa-brands fa-windows text-xs"></i> Windows — connect over Wi-Fi
+        </span>
+        <button id="btnCopyWinConnectCmd" type="button" class="text-[10px] text-zinc-300 hover:text-white px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-700 hover:border-zinc-500 transition flex items-center gap-1">
+          <i class="fa-solid fa-copy text-[9px]"></i> <span id="txtCopyWinConnectCmd">Copy</span>
+        </button>
+      </div>
+      <div class="font-mono text-[10px] text-zinc-300 bg-zinc-900/60 p-2 rounded-lg border border-zinc-800 break-all select-all">
+        <code id="winConnectCmd">powershell -ExecutionPolicy Bypass -c "irm https://webscrcpy.vercel.app/connect-wifi.ps1 | iex"</code>
+      </div>
+      <p class="text-[10px] text-zinc-500 leading-normal">
+        Paste in PowerShell. Finds your phone over Wi-Fi, or walks you through the one-time USB handoff.
+      </p>
+    </div>
+
+    <!-- Windows helper section -->
+    <div class="rounded-xl bg-zinc-950 border border-zinc-800/80 p-3 space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
           <i class="fa-brands fa-windows text-xs"></i> Windows — start the helper
         </span>
         <button id="btnCopyWinCmd" type="button" class="text-[10px] text-zinc-300 hover:text-white px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-700 hover:border-zinc-500 transition flex items-center gap-1">
@@ -424,7 +442,7 @@
           <span class="text-[10px] text-zinc-500">21-11-2026</span>
         </div>
         <ul class="text-[11px] text-zinc-400 space-y-1 list-disc list-inside">
-          <li><span class="font-medium text-zinc-300">Wi-Fi setup is a script now:</span> one command — <code class="font-mono text-zinc-300">curl -fsSL …/connect-wifi.sh | bash</code>. No zip files to download or unzip.</li>
+          <li><span class="font-medium text-zinc-300">Wi-Fi setup is a script now:</span> one command per platform — <code class="font-mono text-zinc-300">connect-wifi.sh</code> (macOS/Linux) or <code class="font-mono text-zinc-300">connect-wifi.ps1</code> (Windows). No zip files to download or unzip.</li>
           <li><span class="font-medium text-zinc-300">Works without a cable:</span> the script finds phones already advertising over mDNS and connects straight away.</li>
           <li><span class="font-medium text-zinc-300">Clearer empty state:</span> if the helper is offline, the panel says so instead of showing nothing.</li>
         </ul>

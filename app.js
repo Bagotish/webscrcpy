@@ -263,6 +263,15 @@ import {
       });
     }
 
+    const btnCopyWinConnectCmd = document.getElementById('btnCopyWinConnectCmd');
+    const txtCopyWinConnectCmd = document.getElementById('txtCopyWinConnectCmd');
+    if (btnCopyWinConnectCmd) {
+      btnCopyWinConnectCmd.addEventListener('click', (e) => {
+        e.stopPropagation();
+        copyCommand('powershell -ExecutionPolicy Bypass -c "irm https://webscrcpy.vercel.app/connect-wifi.ps1 | iex"', txtCopyWinConnectCmd);
+      });
+    }
+
     document.addEventListener('pointerdown', (e) => {
       if (!settingsPanel.contains(e.target) && !btnSettings.contains(e.target)) toggleSettings(false);
       if (!devicePanel.contains(e.target) && !btnWebUsbConnect.contains(e.target)) toggleDevices(false);
