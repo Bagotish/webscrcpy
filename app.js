@@ -212,35 +212,54 @@ import {
     document.getElementById('btnCloseDownload').addEventListener('click', () => toggleDownload(false));
     document.getElementById('btnCloseChangelog').addEventListener('click', () => toggleChangelog(false));
 
+    // Copy a command, falling back to selecting it when the clipboard API is
+    // blocked (insecure origin, denied permission, embedded webview).
+    async function copyCommand(cmd, label) {
+      const setLabel = (text) => { if (label) label.textContent = text; };
+      try {
+        await navigator.clipboard.writeText(cmd);
+        setLabel('Copied');
+        setTimeout(() => setLabel('Copy'), 2000);
+        return;
+      } catch {}
+      const area = document.createElement('textarea');
+      area.value = cmd;
+      area.setAttribute('readonly', '');
+      area.style.position = 'fixed';
+      area.style.opacity = '0';
+      document.body.appendChild(area);
+      area.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch {}
+      area.remove();
+      setLabel(ok ? 'Copied' : 'Select');
+      setTimeout(() => setLabel('Copy'), 2000);
+    }
+
     const btnCopyMacCmd = document.getElementById('btnCopyMacCmd');
     const txtCopyMacCmd = document.getElementById('txtCopyMacCmd');
     if (btnCopyMacCmd) {
-      btnCopyMacCmd.addEventListener('click', async (e) => {
+      btnCopyMacCmd.addEventListener('click', (e) => {
         e.stopPropagation();
-        const cmd = 'curl -fsSL https://webscrcpy.vercel.app/install-mac.sh | bash';
-        try {
-          await navigator.clipboard.writeText(cmd);
-          if (txtCopyMacCmd) txtCopyMacCmd.textContent = 'Copied';
-          setTimeout(() => { if (txtCopyMacCmd) txtCopyMacCmd.textContent = 'Copy'; }, 2000);
-        } catch {
-          prompt('Copy this command:', cmd);
-        }
+        copyCommand('curl -fsSL https://webscrcpy.vercel.app/install-mac.sh | bash', txtCopyMacCmd);
+      });
+    }
+
+    const btnCopyConnectCmd = document.getElementById('btnCopyConnectCmd');
+    const txtCopyConnectCmd = document.getElementById('txtCopyConnectCmd');
+    if (btnCopyConnectCmd) {
+      btnCopyConnectCmd.addEventListener('click', (e) => {
+        e.stopPropagation();
+        copyCommand('curl -fsSL https://webscrcpy.vercel.app/connect-wifi.sh | bash', txtCopyConnectCmd);
       });
     }
 
     const btnCopyWinCmd = document.getElementById('btnCopyWinCmd');
     const txtCopyWinCmd = document.getElementById('txtCopyWinCmd');
     if (btnCopyWinCmd) {
-      btnCopyWinCmd.addEventListener('click', async (e) => {
+      btnCopyWinCmd.addEventListener('click', (e) => {
         e.stopPropagation();
-        const cmd = 'powershell -ExecutionPolicy Bypass -c "irm https://webscrcpy.vercel.app/install-windows.ps1 | iex"';
-        try {
-          await navigator.clipboard.writeText(cmd);
-          if (txtCopyWinCmd) txtCopyWinCmd.textContent = 'Copied';
-          setTimeout(() => { if (txtCopyWinCmd) txtCopyWinCmd.textContent = 'Copy'; }, 2000);
-        } catch {
-          prompt('Copy this command:', cmd);
-        }
+        copyCommand('powershell -ExecutionPolicy Bypass -c "irm https://webscrcpy.vercel.app/install-windows.ps1 | iex"', txtCopyWinCmd);
       });
     }
 

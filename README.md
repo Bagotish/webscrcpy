@@ -11,7 +11,16 @@ Mirror and control your Android phone from a web browser — no app install, wor
 
 ## Quick Start
 
-1. **One-time setup — Wi-Fi Helper** (required for wireless):
+1. **Connect over Wi-Fi — one command** (no downloads):
+
+   ```bash
+   curl -fsSL https://webscrcpy.vercel.app/connect-wifi.sh | bash
+   ```
+
+   It looks for a phone already on Wi-Fi and connects to it. If nothing is
+   found it walks you through the one-time USB handoff.
+
+2. **Start the helper** (lets phones appear under *Nearby*):
 
    **Mac:**
    ```bash
@@ -23,11 +32,13 @@ Mirror and control your Android phone from a web browser — no app install, wor
    powershell -ExecutionPolicy Bypass -c "irm https://webscrcpy.vercel.app/install-windows.ps1 | iex"
    ```
 
-2. **Enable USB debugging on your phone**: Settings → About phone → tap Build number 7× → Developer options → USB debugging ON
+3. **Enable USB debugging on your phone**: Settings → About phone → tap Build number 7× → Developer options → USB debugging ON
 
-3. **USB**: plug in, open the site, tap your phone.
+4. **USB**: plug in, open the site, tap your phone.
 
-4. **Wi-Fi (plug & play)**: plug the phone in via USB once, double-click `connect-wifi.command` (Mac) — it switches the phone to wireless mode and tells you when to unplug. On Windows, use `start-windows.bat`.
+5. **Wi-Fi (plug & play)**: plug the phone in via USB once and run the
+   `connect-wifi.sh` command above — it switches the phone to wireless mode and
+   tells you when to unplug. On Windows, use `start-windows.bat`.
 
 ## Wireless without typing an IP
 
@@ -69,7 +80,6 @@ adb tcpip 5555              # phone plugged in via USB
 adb connect <phone-ip>:5555 # find IP: Settings → Wi-Fi → details
 adb kill-server             # release USB so the browser can use it
 ```
-
 ## Development
 
 Static site — serve locally with any HTTP server, e.g. `npx serve .`.

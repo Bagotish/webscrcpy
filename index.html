@@ -354,17 +354,17 @@
     <div class="rounded-xl bg-zinc-950 border border-zinc-800/80 p-3 space-y-2">
       <div class="flex items-center justify-between">
         <span class="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
-          <i class="fa-brands fa-apple text-xs"></i> macOS
+          <i class="fa-brands fa-apple text-xs"></i> macOS — connect over Wi-Fi
         </span>
-        <button id="btnCopyMacCmd" type="button" class="text-[10px] text-zinc-300 hover:text-white px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-700 hover:border-zinc-500 transition flex items-center gap-1">
-          <i class="fa-solid fa-copy text-[9px]"></i> <span id="txtCopyMacCmd">Copy</span>
+        <button id="btnCopyConnectCmd" type="button" class="text-[10px] text-zinc-300 hover:text-white px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-700 hover:border-zinc-500 transition flex items-center gap-1">
+          <i class="fa-solid fa-copy text-[9px]"></i> <span id="txtCopyConnectCmd">Copy</span>
         </button>
       </div>
       <div class="font-mono text-[10px] text-zinc-300 bg-zinc-900/60 p-2 rounded-lg border border-zinc-800 break-all select-all">
-        <code id="macInstallCmd">curl -fsSL https://webscrcpy.vercel.app/install-mac.sh | bash</code>
+        <code id="connectCmd">curl -fsSL https://webscrcpy.vercel.app/connect-wifi.sh | bash</code>
       </div>
       <p class="text-[10px] text-zinc-500 leading-normal">
-        Run in Terminal. Automatically sets up and starts the bridge in the background.
+        Paste in Terminal. Finds your phone over Wi-Fi, or walks you through the one-time USB handoff.
       </p>
     </div>
 
@@ -372,7 +372,7 @@
     <div class="rounded-xl bg-zinc-950 border border-zinc-800/80 p-3 space-y-2">
       <div class="flex items-center justify-between">
         <span class="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
-          <i class="fa-brands fa-windows text-xs"></i> Windows
+          <i class="fa-brands fa-windows text-xs"></i> Windows — start the helper
         </span>
         <button id="btnCopyWinCmd" type="button" class="text-[10px] text-zinc-300 hover:text-white px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-700 hover:border-zinc-500 transition flex items-center gap-1">
           <i class="fa-solid fa-copy text-[9px]"></i> <span id="txtCopyWinCmd">Copy</span>
@@ -382,25 +382,25 @@
         <code id="winInstallCmd">powershell -ExecutionPolicy Bypass -c "irm https://webscrcpy.vercel.app/install-windows.ps1 | iex"</code>
       </div>
       <p class="text-[10px] text-zinc-500 leading-normal">
-        Run in PowerShell or Windows Terminal. Starts the bridge automatically.
+        Paste in PowerShell. Starts the helper so phones appear under Nearby.
       </p>
     </div>
 
-    <div class="rounded-xl bg-zinc-950/60 border border-zinc-800/60 p-3 space-y-2 text-[11px]">
-      <span class="font-medium text-zinc-300 block text-xs">Manual Downloads</span>
-      <div class="flex items-center gap-3 text-[10px]">
-        <a href="./connect-wifi.command" download="connect-wifi.command" class="text-zinc-400 hover:text-zinc-200 transition flex items-center gap-1">
-          <i class="fa-solid fa-wifi text-[9px]"></i> Wi-Fi Connect (Mac)
-        </a>
-        <span class="text-zinc-700">|</span>
-        <a href="./webscrcpy-windows.zip" download="webscrcpy-windows.zip" class="text-zinc-400 hover:text-zinc-200 transition flex items-center gap-1">
-          <i class="fa-brands fa-windows text-[9px]"></i> Windows (.zip)
-        </a>
-        <span class="text-zinc-700">|</span>
-        <a href="./webscrcpy-mac.zip" download="webscrcpy-mac.zip" class="text-zinc-400 hover:text-zinc-200 transition flex items-center gap-1">
-          <i class="fa-brands fa-apple text-[9px]"></i> macOS (.zip)
-        </a>
+    <div class="rounded-xl bg-zinc-950 border border-zinc-800/80 p-3 space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
+          <i class="fa-solid fa-rotate text-xs"></i> macOS — keep helper running
+        </span>
+        <button id="btnCopyMacCmd" type="button" class="text-[10px] text-zinc-300 hover:text-white px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-700 hover:border-zinc-500 transition flex items-center gap-1">
+          <i class="fa-solid fa-copy text-[9px]"></i> <span id="txtCopyMacCmd">Copy</span>
+        </button>
       </div>
+      <div class="font-mono text-[10px] text-zinc-300 bg-zinc-900/60 p-2 rounded-lg border border-zinc-800 break-all select-all">
+        <code id="macInstallCmd">curl -fsSL https://webscrcpy.vercel.app/install-mac.sh | bash</code>
+      </div>
+      <p class="text-[10px] text-zinc-500 leading-normal">
+        Installs the helper as a background service so it survives reboots.
+      </p>
     </div>
   </div>
 
@@ -417,6 +417,19 @@
     </div>
 
     <div class="max-h-80 overflow-y-auto term-scroll space-y-3 pr-1">
+      <!-- v1.5.1 -->
+      <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800/80 space-y-1.5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-zinc-200">v1.5.1</span>
+          <span class="text-[10px] text-zinc-500">21-11-2026</span>
+        </div>
+        <ul class="text-[11px] text-zinc-400 space-y-1 list-disc list-inside">
+          <li><span class="font-medium text-zinc-300">Wi-Fi setup is a script now:</span> one command — <code class="font-mono text-zinc-300">curl -fsSL …/connect-wifi.sh | bash</code>. No zip files to download or unzip.</li>
+          <li><span class="font-medium text-zinc-300">Works without a cable:</span> the script finds phones already advertising over mDNS and connects straight away.</li>
+          <li><span class="font-medium text-zinc-300">Clearer empty state:</span> if the helper is offline, the panel says so instead of showing nothing.</li>
+        </ul>
+      </div>
+
       <!-- v1.5.0 -->
       <div class="p-3 rounded-xl bg-zinc-950 border border-zinc-800/80 space-y-1.5">
         <div class="flex items-center justify-between">
