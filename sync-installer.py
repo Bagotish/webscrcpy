@@ -26,14 +26,43 @@ def replace_heredoc(lines, open_line, end_marker, payload):
     lines[start + 1:end] = payload
 
 
+def ensure_heredoc(lines, after_line, open_line, end_marker, payload):
+    """Replace the block if present, otherwise append it after a known line."""
+    if any(l.strip() == open_line for l in lines):
+        replace_heredoc(lines, open_line, end_marker, payload)
+        return
+    idx = next(i for i, l in enumerate(lines) if l.strip() == after_line)
+    block = ['', open_line] + payload + [end_marker]
+    lines[idx + 1:idx + 1] = block
+
+
+# Second-screen mode ships three files: the page the tablet loads and the two
+# macOS helpers the bridge drives (capture and event injection).
+SECOND_SCREEN_FILES = [
+    ('second-screen.html', 'SECOND_SCREEN_PAGE_EOF', 'second-screen.html'),
+    ('second-screen-stream.py', 'SECOND_SCREEN_STREAM_EOF', 'second-screen-stream.py'),
+    ('second-screen-input.py', 'SECOND_SCREEN_INPUT_EOF', 'second-screen-input.py'),
+]
+
+
 def sync_sh():
     lines = open('install-mac.sh').read().split('\n')
     mdns = read('mdns.mjs')
     bridge = read('wifi-bridge.mjs')
     replace_heredoc(lines, "cat << 'MDNS_EOF' > \"$INSTALL_DIR/mdns.mjs\"", 'MDNS_EOF', mdns)
     replace_heredoc(lines, "cat << 'BRIDGE_EOF' > \"$INSTALL_DIR/wifi-bridge.mjs\"", 'BRIDGE_EOF', bridge)
+
+    after = 'BRIDGE_EOF'
+    for source, marker, target in SECOND_SCREEN_FILES:
+        payload = read(source)
+        ensure_heredoc(
+            lines, after,
+            f"cat << '{marker}' > \"$INSTALL_DIR/{target}\"", marker, payload)
+        after = marker
+
     open('install-mac.sh', 'w').write('\n'.join(lines))
-    print(f'install-mac.sh: mdns.mjs ({len(mdns)}) + wifi-bridge.mjs ({len(bridge)})')
+    print(f'install-mac.sh: mdns.mjs ({len(mdns)}) + wifi-bridge.mjs ({len(bridge)})'
+          f' + {len(SECOND_SCREEN_FILES)} second-screen files')
 
 
 def sync_ps1():

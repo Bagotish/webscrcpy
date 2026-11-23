@@ -314,7 +314,7 @@ import net from 'node:net';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execSync, execFile, execFileSync } from 'node:child_process';
+import { execSync, execFile, execFileSync, spawn, spawnSync } from 'node:child_process';
 import os from 'node:os';
 import { discoverAdb } from './mdns.mjs';
 
@@ -522,7 +522,7 @@ async function onRequest(request, response) {
     response.end();
     return;
   }
-  if (request.method === 'GET' && (request.url.startsWith('/discover') || request.url.startsWith('/probe') || request.url.startsWith('/devices') || request.url.startsWith('/pair'))) {
+  if (request.method === 'GET' && (request.url.startsWith('/discover') || request.url.startsWith('/probe') || request.url.startsWith('/devices') || request.url.startsWith('/pair') || request.url.startsWith('/screen'))) {
     // These endpoints make the bridge dial arbitrary hosts: refuse any origin that
     // is not the app, otherwise a random website could use this Mac as a scanner.
     if (!allowedOrigin(origin)) {
@@ -670,18 +670,328 @@ async function onRequest(request, response) {
     });
     return;
   }
+  // Serve the second-screen page from the bridge so the tablet needs nothing
+  // but the cable: http://127.0.0.1:8765/second-screen.html
+  if (request.method === 'GET' && (request.url === '/second-screen.html' || request.url.startsWith('/second-screen.html?'))) {
+    const pagePath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'second-screen.html');
+    if (!fs.existsSync(pagePath)) {
+      response.writeHead(404, { 'content-type': 'text/plain' });
+      response.end('second-screen.html is missing.\n');
+      return;
+    }
+    response.writeHead(200, {
+      'content-type': 'text/html; charset=utf-8',
+      'cache-control': 'no-store',
+    });
+    response.end(fs.readFileSync(pagePath));
+    return;
+  }
+
+  // Stream the Mac's display as fragmented MP4 for second-screen mode.
+  if (request.method === 'GET' && request.url.startsWith('/screen')) {
+    if (!SECOND_SCREEN_SUPPORTED) {
+      response.writeHead(501, {
+        'content-type': 'application/json',
+        'cache-control': 'no-store',
+        'access-control-allow-origin': allowedOrigin(origin) ? (origin || '*') : 'null',
+        'vary': 'Origin',
+      });
+      response.end(JSON.stringify({
+        ok: false,
+        message: 'Second-screen mode is currently macOS only.',
+      }));
+      return;
+    }
+  }
+
+  if (request.method === 'GET' && request.url.startsWith('/screen/permissions')) {
+    response.writeHead(200, {
+      'content-type': 'application/json',
+      'cache-control': 'no-store',
+      'access-control-allow-origin': allowedOrigin(origin) ? (origin || '*') : 'null',
+      'vary': 'Origin',
+    });
+    response.end(JSON.stringify({ ok: true, ...screenPermissions() }));
+    return;
+  }
+
+  if (request.method === 'GET' && request.url.startsWith('/screen')) {
+    const query = new URL(request.url, 'http://localhost').searchParams;
+    startScreenStream(response, query, origin);
+    return;
+  }
+
   response.writeHead(200, { 'content-type': 'text/plain' });
   response.end('webscrcpy wifi bridge\n');
 }
 
-function onUpgrade(request, socket, head) {
+// ---------------------------------------------------------------- second screen
+// Second-screen mode drives macOS-only capture (AVFoundation) and input
+// (CoreGraphics), so it is only offered on Darwin.
+const SECOND_SCREEN_SUPPORTED = process.platform === 'darwin';
+
+// Stream this Mac's display to a tablet/phone over USB (adb reverse) so it can
+// act as a second monitor. Capture and encoding run in a Python helper that
+// drives ffmpeg; this process only relays bytes and forwards input events.
+
+const SECOND_SCREEN_STREAM = path.join(path.dirname(fileURLToPath(import.meta.url)), 'second-screen-stream.py');
+const SECOND_SCREEN_INPUT = path.join(path.dirname(fileURLToPath(import.meta.url)), 'second-screen-input.py');
+
+let streamProc = null;
+let streamStartedAt = 0;
+let inputProc = null;
+
+function pythonBin() {
+  for (const candidate of [
+    process.env.PYTHON,
+    '/opt/homebrew/bin/python3',
+    '/usr/local/bin/python3',
+    '/usr/bin/python3',
+  ]) {
+    if (!candidate) continue;
+    try {
+      execFileSync(candidate, ['--version'], { stdio: 'ignore', timeout: 5000 });
+      return candidate;
+    } catch {}
+  }
+  return null;
+}
+
+// Stop the active capture and wait for it to actually exit. ffmpeg holds the
+// AVFoundation screen device exclusively: starting a second capture before the
+// first releases it makes ffmpeg report a bogus "Selected pixel format
+// (yuv420p) is not supported by the input device" and emit zero bytes.
+function stopStream() {
+  return new Promise((resolve) => {
+    const child = streamProc;
+    streamProc = null;
+    if (!child) {
+      resolve();
+      return;
+    }
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    // It may already be gone (the tablet closed its tab a moment ago).
+    if (child.exitCode !== null || child.signalCode !== null) {
+      done();
+      return;
+    }
+    child.once('exit', done);
+    // SIGTERM only: the wrapper forwards it to its own process group so ffmpeg
+    // dies too. SIGKILL would strand ffmpeg holding the screen device.
+    try { child.kill('SIGTERM'); } catch {}
+    setTimeout(done, 5000);
+  });
+}
+
+function captureProcesses() {
+  try {
+    const out = execFileSync('pgrep', ['-f', 'avfoundation.*-i 2:none'], {
+      encoding: 'utf8', timeout: 5000,
+    });
+    return out.split('\n').map((s) => s.trim()).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+// Wait until nothing holds the screen capture device. Cleans up stragglers from
+// a crashed or reloaded session, which would otherwise break the new capture.
+async function waitForCaptureFree(timeoutMs = 6000) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const pids = captureProcesses();
+    if (!pids.length) {
+      // The device is released a moment after the process disappears.
+      await new Promise((r) => setTimeout(r, 250));
+      if (!captureProcesses().length) return true;
+    }
+    for (const pid of pids) {
+      try { process.kill(Number(pid), 'SIGTERM'); } catch {}
+    }
+    if (Date.now() > deadline) return false;
+    await new Promise((r) => setTimeout(r, 300));
+  }
+}
+
+async function startScreenStream(response, query, origin) {
+  const py = pythonBin();
+  if (!py) {
+    response.writeHead(500, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({ ok: false, message: 'python3 not found.' }));
+    return;
+  }
+  if (!fs.existsSync(SECOND_SCREEN_STREAM)) {
+    response.writeHead(500, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({ ok: false, message: 'second-screen-stream.py is missing.' }));
+    return;
+  }
+
+  // One capture at a time: two ffmpeg screen grabs would fight over the device.
+  await stopStream();
+  if (!(await waitForCaptureFree())) {
+    console.error('[screen] capture device still busy; starting anyway');
+  }
+
+  const args = [
+    SECOND_SCREEN_STREAM,
+    '--fps', String(Math.min(Math.max(Number(query.get('fps')) || 30, 5), 60)),
+    '--width', String(Math.min(Math.max(Number(query.get('width')) || 1920, 480), 3840)),
+    '--bitrate', String(query.get('bitrate') || '8M'),
+  ];
+
+  const child = spawn(py, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+  streamProc = child;
+  streamStartedAt = Date.now();
+  let bytes = 0;
+
+  response.writeHead(200, {
+    'content-type': 'video/mp4',
+    'cache-control': 'no-store',
+    'access-control-allow-origin': allowedOrigin(origin) ? (origin || '*') : 'null',
+    'vary': 'Origin',
+  });
+
+  child.stdout.on('data', (chunk) => {
+    bytes += chunk.length;
+    if (!response.write(chunk)) {
+      // Backpressure: pause until the client drains, otherwise a slow tablet
+      // makes the pipe buffer balloon.
+      child.stdout.pause();
+      response.once('drain', () => child.stdout.resume());
+    }
+  });
+
+  child.stderr.on('data', (chunk) => {
+    const text = chunk.toString().trim();
+    if (text) console.error('[screen]', text.split('\n').slice(-2).join(' '));
+  });
+
+  const stop = () => {
+    try { child.kill('SIGTERM'); } catch {}
+    if (streamProc === child) streamProc = null;
+  };
+  child.on('exit', (code) => {
+    console.log(`[screen] capture stopped (code ${code}) after ${((Date.now() - streamStartedAt) / 1000).toFixed(1)}s, ${(bytes / 1048576).toFixed(1)}MB`);
+    if (streamProc === child) streamProc = null;
+    try { response.end(); } catch {}
+  });
+  // The tablet closing the tab must stop capture immediately.
+  response.on('close', stop);
+  response.on('error', stop);
+}
+
+// Report the two macOS permissions second-screen mode needs, so the tablet can
+// show a clear instruction instead of silently doing nothing.
+function screenPermissions() {
+  const py = pythonBin();
+  const result = {
+    accessibility: false,
+    screenRecording: false,
+    helper: process.execPath,
+    python: py,
+  };
+  if (py) {
+    try {
+      const out = execFileSync(py, ['-c', [
+        'import ctypes,ctypes.util',
+        'cg=ctypes.cdll.LoadLibrary(ctypes.util.find_library("ApplicationServices"))',
+        'cg.AXIsProcessTrusted.restype=ctypes.c_bool',
+        'print(cg.AXIsProcessTrusted())',
+      ].join('\n')], { encoding: 'utf8', timeout: 8000 }).trim();
+      result.accessibility = out.endsWith('True');
+    } catch {}
+  }
+  // Screen recording: ffmpeg lists the capture device only if it may read it.
+  // Note: the device list goes to stderr, not stdout.
+  try {
+    const ffmpeg = findFfmpeg();
+    if (ffmpeg) {
+      const probe = spawnSync(ffmpeg, ['-hide_banner', '-f', 'avfoundation',
+        '-list_devices', 'true', '-i', ''], { encoding: 'utf8', timeout: 15000 });
+      const text = `${probe.stderr || ''}${probe.stdout || ''}`;
+      result.screenRecording = text.includes('Capture screen');
+    }
+  } catch {}
+  return result;
+}
+
+function findFfmpeg() {
+  for (const candidate of [
+    '/opt/homebrew/bin/ffmpeg',
+    '/usr/local/bin/ffmpeg',
+    path.join(os.homedir(), 'homebrew', 'bin', 'ffmpeg'),
+    '/usr/bin/ffmpeg',
+  ]) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+// Bridge the tablet's pointer/keyboard to the Mac via the Python injector.
+function startScreenInput(request, socket, head) {
+  const py = pythonBin();
+  if (!py || !fs.existsSync(SECOND_SCREEN_INPUT)) {
+    socket.write('HTTP/1.1 500 Internal Server Error\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+  // Single injector process: it owns stdin for the whole session.
+  if (inputProc) {
+    try { inputProc.kill('SIGTERM'); } catch {}
+    inputProc = null;
+  }
+  const child = spawn(py, [SECOND_SCREEN_INPUT], { stdio: ['pipe', 'pipe', 'pipe'] });
+  inputProc = child;
+
+  child.stdout.on('data', (chunk) => {
+    const text = chunk.toString().trim();
+    if (text) console.log('[input]', text);
+  });
+  child.stderr.on('data', (chunk) => {
+    const text = chunk.toString().trim();
+    if (text) console.error('[input]', text.split('\n').slice(-2).join(' '));
+  });
+  child.on('exit', () => { if (inputProc === child) inputProc = null; });
+
+  // Reuse the relay's frame reader: text frames carry one JSON command each.
   const readExact = frameReader(socket, head);
+  (async () => {
+    try {
+      for (;;) {
+        const frame = await readFrame(readExact);
+        if (frame.opcode === 0x8) break;          // close
+        if (frame.opcode === 0x9) continue;       // ping
+        if (frame.opcode !== 0x1) continue;       // only text carries commands
+        const line = frame.payload.toString('utf8');
+        if (line === 'bye') break;
+        try { child.stdin.write(line + '\n'); } catch {}
+      }
+    } catch {}
+    try { child.stdin.end(); } catch {}
+    try { socket.end(); } catch {}
+  })();
+
+  const stop = () => {
+    try { child.kill('SIGTERM'); } catch {}
+    if (inputProc === child) inputProc = null;
+  };
+  socket.on('close', stop);
+  socket.on('error', stop);
+}
+
+function onUpgrade(request, socket, head) {
   const origin = request.headers.origin || '';
   if (!allowedOrigin(origin)) {
     socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
     socket.destroy();
     return;
   }
+  const pathname = (request.url || '/').split('?')[0];
   const key = request.headers['sec-websocket-key'];
   const acceptKey = crypto.createHash('sha1').update(`${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest('base64');
   socket.write(
@@ -693,6 +1003,14 @@ function onUpgrade(request, socket, head) {
     'Access-Control-Allow-Private-Network: true\r\n' +
     '\r\n',
   );
+  // Second-screen input has its own protocol: JSON commands straight to the
+  // macOS event injector, no ADB relay handshake. It builds its own frame
+  // reader, so return before creating one here.
+  if (pathname === '/screen-input') {
+    startScreenInput(request, socket, head);
+    return;
+  }
+  const readExact = frameReader(socket, head);
   (async () => {
     try {
       const first = await readFrame(readExact);
@@ -774,6 +1092,803 @@ if (certs) {
   console.log('No wifi-bridge-certs found, wss://127.0.0.1 is disabled (only ws://127.0.0.1:8765 is active).');
 }
 BRIDGE_EOF
+
+cat << 'SECOND_SCREEN_PAGE_EOF' > "$INSTALL_DIR/second-screen.html"
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#09090b">
+<title>WebScrcpy — Second Screen</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden; background: #000; color: #fafafa;
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    overscroll-behavior: none; touch-action: none;
+  }
+  #stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  #screen {
+    display: block; width: 100%; height: 100%; object-fit: contain;
+    background: #000; cursor: none;
+  }
+  #screen.hidden { display: none; }
+
+  /* ---------------------------------------------------------------- overlay */
+  #overlay {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 18px; padding: 32px;
+    background: radial-gradient(circle at 50% 40%, #18181b 0%, #09090b 70%);
+    text-align: center; z-index: 20;
+  }
+  #overlay.gone { display: none; }
+  .logo { font-size: 13px; letter-spacing: .3em; text-transform: uppercase; color: #34d399; font-weight: 600; }
+  h1 { font-size: 26px; font-weight: 700; line-height: 1.25; }
+  h1 span { color: #34d399; }
+  .hint { font-size: 14px; color: #a1a1aa; line-height: 1.6; max-width: 30em; }
+  .field {
+    display: flex; gap: 8px; width: 100%; max-width: 420px; margin-top: 6px;
+  }
+  input {
+    flex: 1; min-width: 0; padding: 13px 15px; border-radius: 11px;
+    background: #18181b; border: 1px solid #3f3f46; color: #fafafa;
+    font-size: 15px; font-family: inherit; outline: none;
+  }
+  input:focus { border-color: #34d399; }
+  button {
+    padding: 13px 22px; border-radius: 11px; border: 0; font-size: 15px;
+    font-weight: 600; font-family: inherit; background: #34d399; color: #052e1c;
+    cursor: pointer; transition: filter .15s ease;
+  }
+  button:active { filter: brightness(.9); }
+  button:disabled { opacity: .5; }
+  button.ghost { background: #27272a; color: #e4e4e7; }
+  #status { font-size: 13px; color: #71717a; min-height: 1.4em; }
+  #status.err { color: #f87171; }
+  #status.ok { color: #34d399; }
+  #perms { font-size: 13px; line-height: 1.9; color: #a1a1aa; display: none; }
+  #perms.show { display: block; }
+  #perms .row { display: flex; align-items: center; gap: 8px; justify-content: center; }
+  #perms .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  #perms .dot.ok { background: #34d399; }
+  #perms .dot.bad { background: #f59e0b; }
+
+  /* ---------------------------------------------------------------- toolbar */
+  #toolbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 15;
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+    background: linear-gradient(#000c, #0000); transition: opacity .25s ease;
+    padding-top: max(8px, env(safe-area-inset-top));
+  }
+  #toolbar.idle { opacity: 0; pointer-events: none; }
+  #toolbar button {
+    padding: 8px 14px; font-size: 13px; border-radius: 9px;
+    background: #18181bcc; color: #e4e4e7; border: 1px solid #3f3f46;
+    backdrop-filter: blur(10px);
+  }
+  #toolbar .spacer { flex: 1; }
+  #stats { font-size: 11px; color: #a1a1aa; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <video id="screen" class="hidden" playsinline muted autoplay></video>
+</div>
+
+<div id="toolbar" class="idle">
+  <button id="btnFull" type="button">⛶ Fullscreen</button>
+  <span class="spacer"></span>
+  <span id="stats"></span>
+  <button id="btnStop" type="button">Stop</button>
+</div>
+
+<div id="overlay">
+  <div class="logo">WebScrcpy</div>
+  <h1>Use this device as a<br><span>second screen</span></h1>
+  <p class="hint" id="hint">
+    Connect this tablet to your Mac with a USB cable, then open this page on it.
+  </p>
+  <div class="field">
+    <input id="url" type="url" spellcheck="false" autocapitalize="off"
+           placeholder="http://127.0.0.1:8765">
+    <button id="btnStart" type="button">Start</button>
+  </div>
+  <div id="status"></div>
+  <div id="perms"></div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = (id) => document.getElementById(id);
+  const video = $('screen');
+  const overlay = $('overlay');
+  const toolbar = $('toolbar');
+  const statusEl = $('status');
+  const statsEl = $('stats');
+  const urlInput = $('url');
+
+  let inputSocket = null;
+  let started = false;
+  let idleTimer = null;
+  let lastTouchAt = 0;
+
+  // With adb reverse, 127.0.0.1:8765 on the tablet is the Mac's bridge.
+  const defaultBase = `${location.protocol}//${location.hostname || '127.0.0.1'}${location.port ? ':' + location.port : ':8765'}`;
+  urlInput.value = localStorage.getItem('webscrcpy.screenBase') || defaultBase;
+
+  const setStatus = (text, kind = '') => {
+    statusEl.textContent = text;
+    statusEl.className = kind;
+  };
+
+  // ------------------------------------------------------------ MediaSource
+  // The bridge sends fragmented MP4, which MSE plays as it arrives. This is
+  // what keeps latency low compared with a plain <video src> download.
+  function supportsMse() {
+    return typeof MediaSource !== 'undefined'
+      && MediaSource.isTypeSupported('video/mp4; codecs="avc1.640028"');
+  }
+
+  // Network chunks split MP4 boxes at arbitrary offsets. appendBuffer rejects a
+  // partial box ("Failed to execute 'appendBuffer'"), which made roughly half
+  // of the streams start black. This accumulates bytes and emits whole
+  // fragments, each starting at a moof box.
+  function createBoxSplitter() {
+    let buffer = new Uint8Array(0);
+
+    const readUint32 = (bytes, offset) =>
+      ((bytes[offset] << 24) >>> 0) + (bytes[offset + 1] << 16)
+      + (bytes[offset + 2] << 8) + bytes[offset + 3];
+
+    return function push(chunk) {
+      const merged = new Uint8Array(buffer.length + chunk.length);
+      merged.set(buffer, 0);
+      merged.set(chunk, buffer.length);
+      buffer = merged;
+
+      // Locate complete box boundaries first.
+      const boxes = [];
+      let offset = 0;
+      for (;;) {
+        if (buffer.length - offset < 8) break;
+        let size = readUint32(buffer, offset);
+        let headerSize = 8;
+        if (size === 1) {
+          if (buffer.length - offset < 16) break;
+          size = Number(readUint32(buffer, offset + 8)) * 4294967296
+            + readUint32(buffer, offset + 12);
+          headerSize = 16;
+        } else if (size === 0) {
+          break; // runs to end of stream; unknown boundary
+        }
+        if (size < headerSize || buffer.length - offset < size) break;
+        boxes.push({
+          type: String.fromCharCode(
+            buffer[offset + 4], buffer[offset + 5],
+            buffer[offset + 6], buffer[offset + 7]),
+          bytes: buffer.subarray(offset, offset + size),
+        });
+        offset += size;
+      }
+      buffer = buffer.subarray(offset);
+
+      // A fragment is one moof plus everything up to the next moof. Anything
+      // before the first moof (ftyp + moov) is the init segment: it must be
+      // appended too, or the decoder never learns the track layout and the
+      // video stays black.
+      const segments = [];
+      let current = [];
+      for (const box of boxes) {
+        if (box.type === 'moof' && current.length) {
+          segments.push(concat(current));
+          current = [];
+        }
+        current.push(box.bytes);
+      }
+      if (current.length) {
+        const tail = current[current.length - 1];
+        const tailType = String.fromCharCode(tail[4], tail[5], tail[6], tail[7]);
+        const hasMoof = current.some((b) => b.length > 8
+          && String.fromCharCode(b[4], b[5], b[6], b[7]) === 'moof');
+        // Emit a finished fragment, or the complete init segment on its own.
+        if (tailType === 'mdat' || !hasMoof) {
+          segments.push(concat(current));
+        } else {
+          // Still mid-fragment: carry these boxes into the next chunk.
+          buffer = concat([...current, buffer]);
+        }
+      }
+      return segments;
+    };
+  }
+
+  function concat(parts) {
+    const total = parts.reduce((sum, part) => sum + part.length, 0);
+    const out = new Uint8Array(total);
+    let at = 0;
+    for (const part of parts) {
+      out.set(part, at);
+      at += part.length;
+    }
+    return out;
+  }
+
+  function playWithMse(base) {
+    return new Promise((resolve, reject) => {
+      const ms = new MediaSource();
+      const objectUrl = URL.createObjectURL(ms);
+      video.src = objectUrl;
+
+      ms.addEventListener('sourceopen', async () => {
+        let sourceBuffer;
+        try {
+          sourceBuffer = ms.addSourceBuffer('video/mp4; codecs="avc1.640028"');
+        } catch (err) {
+          reject(new Error('This browser cannot decode the stream.'));
+          return;
+        }
+
+        // Keep the buffer short so playback stays near live.
+        const TRIM_AT = 6;
+        const TRIM_TO = 2;
+        const trim = () => {
+          if (sourceBuffer.updating || ms.readyState !== 'open') return;
+          const buffered = sourceBuffer.buffered;
+          if (!buffered.length) return;
+          const start = buffered.start(0);
+          const end = buffered.end(buffered.length - 1);
+          if (end - start > TRIM_AT) {
+            try { sourceBuffer.remove(start, start + (end - start - TRIM_TO)); } catch {}
+          }
+          // Follow the live edge.
+          if (video.currentTime < end - 1.2) {
+            video.currentTime = end - 0.4;
+          }
+        };
+        sourceBuffer.addEventListener('updateend', trim);
+
+        const queue = [];
+        const pump = () => {
+          if (sourceBuffer.updating || !queue.length) return;
+          try {
+            sourceBuffer.appendBuffer(queue.shift());
+          } catch (err) {
+            reject(new Error('Stream buffer failed.'));
+          }
+        };
+        sourceBuffer.addEventListener('updateend', pump);
+
+        try {
+          const res = await fetch(`${base}/screen?fps=30&width=1920&bitrate=8M`, { cache: 'no-store' });
+          if (!res.ok) throw new Error(`Bridge returned ${res.status}`);
+          const reader = res.body.getReader();
+          const push = createBoxSplitter();
+          resolve();
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            for (const segment of push(value)) queue.push(segment);
+            pump();
+          }
+        } catch (err) {
+          reject(err);
+        }
+      }, { once: true });
+    });
+  }
+
+  // Fallback for browsers without MSE: let the video element download it.
+  function playDirect(base) {
+    video.src = `${base}/screen?fps=30&width=1920&bitrate=8M`;
+    video.play().catch(() => {});
+    return Promise.resolve();
+  }
+
+  // ------------------------------------------------------------ input
+  function openInput(base) {
+    const wsBase = base.replace(/^http/, 'ws');
+    try {
+      inputSocket = new WebSocket(`${wsBase}/screen-input`);
+    } catch { return; }
+    inputSocket.addEventListener('open', () => {
+      setStatus('Connected', 'ok');
+    });
+    inputSocket.addEventListener('close', () => { inputSocket = null; });
+    inputSocket.addEventListener('error', () => { inputSocket = null; });
+  }
+
+  function send(command) {
+    if (inputSocket && inputSocket.readyState === WebSocket.OPEN) {
+      inputSocket.send(JSON.stringify(command));
+    }
+  }
+
+  // Map a pointer position on the video to normalized screen coordinates.
+  function toScreen(event) {
+    const rect = video.getBoundingClientRect();
+    const vw = video.videoWidth || 16;
+    const vh = video.videoHeight || 9;
+    const scale = Math.min(rect.width / vw, rect.height / vh);
+    const dw = vw * scale;
+    const dh = vh * scale;
+    const left = rect.left + (rect.width - dw) / 2;
+    const top = rect.top + (rect.height - dh) / 2;
+    const x = (event.clientX - left) / dw;
+    const y = (event.clientY - top) / dh;
+    return {
+      x: Math.min(Math.max(x, 0), 1),
+      y: Math.min(Math.max(y, 0), 1),
+      inside: x >= 0 && x <= 1 && y >= 0 && y <= 1,
+    };
+  }
+
+  video.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    const p = toScreen(e);
+    if (!p.inside) return;
+    video.setPointerCapture?.(e.pointerId);
+    send({ type: 'down', x: p.x, y: p.y, button: e.button === 2 ? 'right' : 'left' });
+  });
+
+  video.addEventListener('pointermove', (e) => {
+    const p = toScreen(e);
+    if (!p.inside) return;
+    send({ type: 'move', x: p.x, y: p.y });
+  });
+
+  video.addEventListener('pointerup', (e) => {
+    const p = toScreen(e);
+    send({ type: 'up', x: p.x, y: p.y, button: e.button === 2 ? 'right' : 'left' });
+  });
+
+  video.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    send({ type: 'scroll', dy: e.deltaY > 0 ? -1 : 1 });
+  }, { passive: false });
+
+  video.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  // Keyboard: forward printable keys and common control keys.
+  const SPECIAL = {
+    Enter: 36, Escape: 53, Backspace: 51, Tab: 48, ' ': 49,
+    ArrowLeft: 123, ArrowRight: 124, ArrowDown: 125, ArrowUp: 126,
+    Delete: 117, Home: 115, End: 119, PageUp: 116, PageDown: 121,
+  };
+  document.addEventListener('keydown', (e) => {
+    if (!started) return;
+    const code = SPECIAL[e.key];
+    if (code !== undefined) {
+      e.preventDefault();
+      send({ type: 'key', code });
+    } else if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
+      send({ type: 'text', text: e.key });
+    }
+  });
+
+  // ------------------------------------------------------------ chrome
+  function showToolbar() {
+    toolbar.classList.remove('idle');
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => toolbar.classList.add('idle'), 2600);
+  }
+
+  ['pointermove', 'pointerdown', 'keydown'].forEach((name) => {
+    document.addEventListener(name, showToolbar, { passive: true });
+  });
+
+  $('btnFull').addEventListener('click', async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen();
+    } catch {}
+  });
+
+  $('btnStop').addEventListener('click', () => {
+    location.reload();
+  });
+
+  // ------------------------------------------------------------ start
+  // Show which macOS permissions are still missing, before the user starts.
+  async function showPermissions(base) {
+    const perms = $('perms');
+    try {
+      const res = await fetch(`${base}/screen/permissions`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const info = await res.json();
+      const rows = [
+        ['Screen Recording', info.screenRecording],
+        ['Accessibility', info.accessibility],
+      ];
+      perms.innerHTML = rows.map(([name, ok]) =>
+        `<div class="row"><span class="dot ${ok ? 'ok' : 'bad'}"></span>` +
+        `${name}${ok ? '' : ' — needs approval on the Mac'}</div>`).join('');
+      perms.classList.add('show');
+      if (!info.accessibility) {
+        setStatus('Enable Accessibility on your Mac to control it from here.', 'err');
+      }
+    } catch {}
+  }
+
+  async function start() {
+    const base = urlInput.value.trim().replace(/\/$/, '');
+    if (!base) { setStatus('Enter the bridge address.', 'err'); return; }
+    localStorage.setItem('webscrcpy.screenBase', base);
+
+    $('btnStart').disabled = true;
+    setStatus('Connecting…');
+
+    try {
+      // Fail fast with a useful message if the bridge is not reachable.
+      const health = await fetch(`${base}/devices`, { cache: 'no-store' })
+        .catch(() => null);
+      if (!health) throw new Error(
+        'Cannot reach the bridge. Is the cable connected and the helper running?');
+
+      openInput(base);
+      if (supportsMse()) await playWithMse(base);
+      else await playDirect(base);
+
+      video.classList.remove('hidden');
+      overlay.classList.add('gone');
+      started = true;
+      await video.play().catch(() => {});
+      setStatus('Connected', 'ok');
+      showToolbar();
+      // Best effort fullscreen (needs a user gesture; the click above counts).
+      document.documentElement.requestFullscreen?.().catch(() => {});
+    } catch (err) {
+      $('btnStart').disabled = false;
+      setStatus(err.message || 'Could not start the stream.', 'err');
+    }
+  }
+
+  $('btnStart').addEventListener('click', start);
+  urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') start(); });
+
+  // Check permissions on load so the user knows before tapping Start.
+  showPermissions(urlInput.value.trim().replace(/\/$/, ''));
+
+  // ------------------------------------------------------------ stats
+  setInterval(() => {
+    if (!started) return;
+    const v = video;
+    const buffered = v.buffered.length ? v.buffered.end(v.buffered.length - 1) : 0;
+    const lag = buffered ? Math.max(0, buffered - v.currentTime) : 0;
+    const fps = v.getVideoPlaybackQuality?.().totalVideoFrames || 0;
+    statsEl.textContent = `${fps}f · ${lag.toFixed(1)}s buffer`;
+  }, 1000);
+})();
+</script>
+</body>
+</html>
+SECOND_SCREEN_PAGE_EOF
+
+cat << 'SECOND_SCREEN_STREAM_EOF' > "$INSTALL_DIR/second-screen-stream.py"
+#!/usr/bin/env python3
+"""
+Stream this Mac's screen as fragmented MP4 on stdout for WebScrcpy's
+second-screen mode. wifi-bridge.mjs pipes the output to the browser.
+
+  python3 second-screen-stream.py --fps 30 --width 1920 --bitrate 8M
+
+Two capture backends:
+  --source screen   the Mac's display (default)
+  --source camera   any AVFoundation device, useful for testing the pipe
+
+Uses ffmpeg's avfoundation input with VideoToolbox hardware encoding, so the
+CPU cost is small. Output is fragmented MP4 (frag_keyframe+empty_moov) which a
+browser can play from a MediaSource as the bytes arrive.
+"""
+import argparse
+import os
+import shutil
+import signal
+import subprocess
+import sys
+
+FFMPEG_CANDIDATES = [
+    '/opt/homebrew/bin/ffmpeg',
+    '/usr/local/bin/ffmpeg',
+    os.path.expanduser('~/homebrew/bin/ffmpeg'),
+    '/usr/bin/ffmpeg',
+]
+
+
+def find_ffmpeg():
+    for path in FFMPEG_CANDIDATES:
+        if os.path.isfile(path) and os.access(path, os.X_OK):
+            return path
+    found = shutil.which('ffmpeg')
+    if found:
+        return found
+    raise SystemExit('ffmpeg not found. Install it with: brew install ffmpeg')
+
+
+def screen_device(ffmpeg):
+    """Find the avfoundation index of the Mac's screen."""
+    try:
+        out = subprocess.run(
+            [ffmpeg, '-hide_banner', '-f', 'avfoundation',
+             '-list_devices', 'true', '-i', ''],
+            capture_output=True, text=True, timeout=15,
+        )
+    except Exception:
+        return None
+    for line in out.stderr.splitlines():
+        if 'Capture screen' not in line:
+            continue
+        # Line looks like: [AVFoundation indev @ 0x...] [2] Capture screen 0
+        # so the device index is in the LAST bracketed group.
+        head, _, _ = line.partition('Capture screen')
+        digits = head.rstrip().rsplit('[', 1)[-1].rstrip(']').strip()
+        if digits.isdigit():
+            return digits
+    return None
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--source', default='screen', choices=['screen', 'camera'])
+    ap.add_argument('--device', default=None, help='avfoundation index')
+    ap.add_argument('--fps', type=int, default=30)
+    ap.add_argument('--width', type=int, default=1920)
+    ap.add_argument('--bitrate', default='8M')
+    ap.add_argument('--codec', default='h264', choices=['h264', 'hevc'])
+    args = ap.parse_args()
+
+    ffmpeg = find_ffmpeg()
+    device = args.device
+    if device is None:
+        device = screen_device(ffmpeg) if args.source == 'screen' else '0'
+    if device is None:
+        raise SystemExit(
+            'Could not find the screen capture device. Grant Screen Recording '
+            'permission to your terminal (System Settings -> Privacy & Security '
+            '-> Screen Recording), then run this again.')
+
+    encoder = 'h264_videotoolbox' if args.codec == 'h264' else 'hevc_videotoolbox'
+    # scale=W:-2 keeps the aspect ratio and an even height for yuv420p.
+    # Note: avfoundation applies a bare -pix_fmt to the *input* device and then
+    # fails with "Selected pixel format (yuv420p) is not supported by the input
+    # device". Converting in the filter chain avoids that entirely.
+    cmd = [
+        ffmpeg, '-hide_banner', '-loglevel', 'error',
+        '-f', 'avfoundation',
+        '-capture_cursor', '1',
+        '-framerate', str(args.fps),
+        '-i', f'{device}:none',
+        '-vf', f'scale={args.width}:-2:flags=bilinear,format=yuv420p',
+        '-c:v', encoder,
+        '-b:v', args.bitrate,
+        # Force a keyframe once a second. Without this VideoToolbox rarely emits
+        # one, so frag_keyframe would hand the browser a single huge fragment and
+        # playback would only start after several seconds.
+        '-force_key_frames', 'expr:gte(t,n_forced*1)',
+        '-g', str(args.fps * 2),
+        # frag_duration cuts fragments on a timer as well as at keyframes, which
+        # is what keeps the browser's first frame arriving quickly.
+        '-frag_duration', '250000',
+        '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
+        '-flush_packets', '1',
+        '-f', 'mp4',
+        '-',
+    ]
+    sys.stderr.write('starting: ' + ' '.join(cmd) + '\n')
+
+    # start_new_session puts ffmpeg in its own process group so we can kill the
+    # whole group. A plain terminate() can leave ffmpeg alive holding the
+    # exclusive AVFoundation screen device, which makes the *next* capture fail
+    # with a bogus "Selected pixel format (yuv420p) is not supported" error.
+    proc = subprocess.Popen(
+        cmd, stdout=sys.stdout.buffer, stderr=sys.stderr, start_new_session=True)
+
+    stopping = False
+
+    def kill_group(sig=signal.SIGTERM):
+        try:
+            os.killpg(os.getpgid(proc.pid), sig)
+        except Exception:
+            try:
+                proc.send_signal(sig)
+            except Exception:
+                pass
+
+    def stop(signum, frame):
+        nonlocal stopping
+        if stopping:
+            return
+        stopping = True
+        kill_group(signal.SIGTERM)
+
+    signal.signal(signal.SIGTERM, stop)
+    signal.signal(signal.SIGINT, stop)
+
+    try:
+        proc.wait()
+    finally:
+        # Always reap the group, even on an unexpected exit path.
+        if proc.poll() is None:
+            kill_group(signal.SIGKILL)
+        else:
+            # A SIGTERM'd child that already exited may have left grandchildren.
+            kill_group(signal.SIGKILL)
+
+
+if __name__ == '__main__':
+    main()
+SECOND_SCREEN_STREAM_EOF
+
+cat << 'SECOND_SCREEN_INPUT_EOF' > "$INSTALL_DIR/second-screen-input.py"
+#!/usr/bin/env python3
+"""
+Inject mouse and keyboard events into macOS for the WebScrcpy second-screen
+mode. Called by wifi-bridge.mjs; reads one JSON command per line on stdin.
+
+  {"type":"move","x":0.5,"y":0.5}      normalized 0..1 screen coords
+  {"type":"down","button":"left"}
+  {"type":"up","button":"left"}
+  {"type":"click","x":..,"y":..}
+  {"type":"scroll","dy":-3}
+  {"type":"key","code":6}              CGKeyCode
+  {"type":"text","text":"hello"}
+
+Requires Accessibility permission for the process that owns this binary
+(Terminal, or the launchd job's executable). macOS silently drops events
+otherwise, so a denied permission looks like "nothing happens".
+"""
+import ctypes
+import ctypes.util
+import json
+import sys
+
+CG = ctypes.cdll.LoadLibrary(ctypes.util.find_library('ApplicationServices'))
+
+CG.CGEventCreate.restype = ctypes.c_void_p
+CG.CGEventCreate.argtypes = [ctypes.c_void_p]
+CG.CGEventGetLocation.restype = ctypes.c_void_p
+CG.CGEventPost.argtypes = [ctypes.c_uint32, ctypes.c_void_p]
+CG.CGEventSetIntegerValueField.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.c_int64]
+CG.CGEventSetType.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+CG.CGEventCreateMouseEvent.restype = ctypes.c_void_p
+CG.CGEventCreateMouseEvent.argtypes = [
+    ctypes.c_void_p, ctypes.c_uint32, ctypes.c_void_p, ctypes.c_uint32]
+CG.CGEventCreateKeyboardEvent.restype = ctypes.c_void_p
+CG.CGEventCreateKeyboardEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint16, ctypes.c_bool]
+CG.CGEventCreateScrollWheelEvent.restype = ctypes.c_void_p
+CG.CGEventCreateScrollWheelEvent.argtypes = [
+    ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_int32]
+CG.CGEventSetFlags.argtypes = [ctypes.c_void_p, ctypes.c_uint64]
+CG.AXIsProcessTrusted.restype = ctypes.c_bool
+
+
+class CGPoint(ctypes.Structure):
+    _fields_ = [('x', ctypes.c_double), ('y', ctypes.c_double)]
+
+
+# Quartz event types
+LEFT_DOWN, LEFT_UP = 1, 2
+RIGHT_DOWN, RIGHT_UP = 3, 4
+MOUSE_MOVED, LEFT_DRAG, RIGHT_DRAG = 5, 6, 7
+SCROLL = 22
+KEY_DOWN, KEY_UP = 10, 11
+TAP = 0  # kCGHIDEventTap
+
+BUTTONS = {
+    'left': (LEFT_DOWN, LEFT_UP, 0),
+    'right': (RIGHT_DOWN, RIGHT_UP, 1),
+    'middle': (1, 2, 2),
+}
+
+
+def screen_size():
+    """Return the main display's pixel size via CoreGraphics."""
+    CG.CGDisplayPixelsWide.restype = ctypes.c_size_t
+    CG.CGDisplayPixelsHigh.restype = ctypes.c_size_t
+    CG.CGMainDisplayID.restype = ctypes.c_uint32
+    display = CG.CGMainDisplayID()
+    return CG.CGDisplayPixelsWide(display), CG.CGDisplayPixelsHigh(display)
+
+
+WIDTH, HEIGHT = screen_size()
+
+
+def point(x, y):
+    """Convert normalized 0..1 coordinates to absolute screen points."""
+    return CGPoint(float(x) * WIDTH, float(y) * HEIGHT)
+
+
+def post(event):
+    if not event:
+        return
+    CG.CGEventPost(TAP, event)
+    CFRelease = CG.CFRelease
+    CFRelease.argtypes = [ctypes.c_void_p]
+    CFRelease(event)
+
+
+def mouse_event(kind, pt, button=0):
+    p = CGPoint(pt.x, pt.y)
+    ev = CG.CGEventCreateMouseEvent(None, kind, ctypes.byref(p), button)
+    post(ev)
+
+
+def handle(cmd):
+    kind = cmd.get('type')
+    if kind == 'move':
+        mouse_event(MOUSE_MOVED, point(cmd.get('x', 0), cmd.get('y', 0)))
+    elif kind == 'down':
+        _, _, btn = BUTTONS.get(cmd.get('button', 'left'), BUTTONS['left'])
+        down, _, _ = BUTTONS.get(cmd.get('button', 'left'), BUTTONS['left'])
+        mouse_event(down, point(cmd.get('x', 0), cmd.get('y', 0)), btn)
+    elif kind == 'up':
+        _, up, btn = BUTTONS.get(cmd.get('button', 'left'), BUTTONS['left'])
+        mouse_event(up, point(cmd.get('x', 0), cmd.get('y', 0)), btn)
+    elif kind == 'click':
+        x, y = cmd.get('x', 0), cmd.get('y', 0)
+        pt = point(x, y)
+        down, up, btn = BUTTONS.get(cmd.get('button', 'left'), BUTTONS['left'])
+        mouse_event(MOUSE_MOVED, pt, btn)
+        mouse_event(down, pt, btn)
+        mouse_event(up, pt, btn)
+    elif kind == 'scroll':
+        ev = CG.CGEventCreateScrollWheelEvent(
+            None, 1, 1, int(cmd.get('dy', 0)))
+        post(ev)
+    elif kind == 'key':
+        code = int(cmd.get('code', 0))
+        flags = int(cmd.get('flags', 0))
+        for is_down in (True, False):
+            ev = CG.CGEventCreateKeyboardEvent(None, code, is_down)
+            if flags:
+                CG.CGEventSetFlags(ev, flags)
+            post(ev)
+    elif kind == 'text':
+        # Unicode typing: post each character as a keyboard event pair using
+        # the CGEventKeyboardSetUnicodeString path.
+        text = str(cmd.get('text', ''))
+        CG.CGEventKeyboardSetUnicodeString.argtypes = [
+            ctypes.c_void_p, ctypes.c_ulong, ctypes.c_void_p]
+        for ch in text:
+            for is_down in (True, False):
+                ev = CG.CGEventCreateKeyboardEvent(None, 0, is_down)
+                buf = ctypes.create_string_buffer(ch.encode('utf-16-le'))
+                CG.CGEventKeyboardSetUnicodeString(
+                    ev, len(ch.encode('utf-16-le')) // 2, buf)
+                post(ev)
+    return True
+
+
+def main():
+    if not CG.AXIsProcessTrusted():
+        # Report clearly instead of silently doing nothing.
+        print(json.dumps({
+            'type': 'error',
+            'message': 'Accessibility permission is not granted. Enable it for '
+                       'this helper in System Settings -> Privacy & Security -> '
+                       'Accessibility.',
+        }), flush=True)
+    print(json.dumps({'type': 'ready', 'width': WIDTH, 'height': HEIGHT}), flush=True)
+
+    for line in sys.stdin:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            handle(json.loads(line))
+        except Exception as exc:  # never die on a malformed command
+            print(json.dumps({'type': 'error', 'message': str(exc)}), flush=True)
+
+
+if __name__ == '__main__':
+    main()
+SECOND_SCREEN_INPUT_EOF
+
+# The bridge spawns these helpers directly, so they must be executable.
+chmod +x "$INSTALL_DIR/second-screen-stream.py" "$INSTALL_DIR/second-screen-input.py" 2>/dev/null || true
 
 # Generate local SSL certs if needed
 CERT_DIR="$INSTALL_DIR/wifi-bridge-certs"

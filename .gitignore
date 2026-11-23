@@ -11,3 +11,7 @@ guide-assets/*.jpg
 guide-assets/timeline.json
 *.mp4
 *.pdf
+
+# Python bytecode from the second-screen helpers
+__pycache__/
+*.pyc

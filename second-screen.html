@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#09090b">
+<title>WebScrcpy — Second Screen</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden; background: #000; color: #fafafa;
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    overscroll-behavior: none; touch-action: none;
+  }
+  #stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  #screen {
+    display: block; width: 100%; height: 100%; object-fit: contain;
+    background: #000; cursor: none;
+  }
+  #screen.hidden { display: none; }
+
+  /* ---------------------------------------------------------------- overlay */
+  #overlay {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 18px; padding: 32px;
+    background: radial-gradient(circle at 50% 40%, #18181b 0%, #09090b 70%);
+    text-align: center; z-index: 20;
+  }
+  #overlay.gone { display: none; }
+  .logo { font-size: 13px; letter-spacing: .3em; text-transform: uppercase; color: #34d399; font-weight: 600; }
+  h1 { font-size: 26px; font-weight: 700; line-height: 1.25; }
+  h1 span { color: #34d399; }
+  .hint { font-size: 14px; color: #a1a1aa; line-height: 1.6; max-width: 30em; }
+  .field {
+    display: flex; gap: 8px; width: 100%; max-width: 420px; margin-top: 6px;
+  }
+  input {
+    flex: 1; min-width: 0; padding: 13px 15px; border-radius: 11px;
+    background: #18181b; border: 1px solid #3f3f46; color: #fafafa;
+    font-size: 15px; font-family: inherit; outline: none;
+  }
+  input:focus { border-color: #34d399; }
+  button {
+    padding: 13px 22px; border-radius: 11px; border: 0; font-size: 15px;
+    font-weight: 600; font-family: inherit; background: #34d399; color: #052e1c;
+    cursor: pointer; transition: filter .15s ease;
+  }
+  button:active { filter: brightness(.9); }
+  button:disabled { opacity: .5; }
+  button.ghost { background: #27272a; color: #e4e4e7; }
+  #status { font-size: 13px; color: #71717a; min-height: 1.4em; }
+  #status.err { color: #f87171; }
+  #status.ok { color: #34d399; }
+  #perms { font-size: 13px; line-height: 1.9; color: #a1a1aa; display: none; }
+  #perms.show { display: block; }
+  #perms .row { display: flex; align-items: center; gap: 8px; justify-content: center; }
+  #perms .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  #perms .dot.ok { background: #34d399; }
+  #perms .dot.bad { background: #f59e0b; }
+
+  /* ---------------------------------------------------------------- toolbar */
+  #toolbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 15;
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+    background: linear-gradient(#000c, #0000); transition: opacity .25s ease;
+    padding-top: max(8px, env(safe-area-inset-top));
+  }
+  #toolbar.idle { opacity: 0; pointer-events: none; }
+  #toolbar button {
+    padding: 8px 14px; font-size: 13px; border-radius: 9px;
+    background: #18181bcc; color: #e4e4e7; border: 1px solid #3f3f46;
+    backdrop-filter: blur(10px);
+  }
+  #toolbar .spacer { flex: 1; }
+  #stats { font-size: 11px; color: #a1a1aa; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <video id="screen" class="hidden" playsinline muted autoplay></video>
+</div>
+
+<div id="toolbar" class="idle">
+  <button id="btnFull" type="button">⛶ Fullscreen</button>
+  <span class="spacer"></span>
+  <span id="stats"></span>
+  <button id="btnStop" type="button">Stop</button>
+</div>
+
+<div id="overlay">
+  <div class="logo">WebScrcpy</div>
+  <h1>Use this device as a<br><span>second screen</span></h1>
+  <p class="hint" id="hint">
+    Connect this tablet to your Mac with a USB cable, then open this page on it.
+  </p>
+  <div class="field">
+    <input id="url" type="url" spellcheck="false" autocapitalize="off"
+           placeholder="http://127.0.0.1:8765">
+    <button id="btnStart" type="button">Start</button>
+  </div>
+  <div id="status"></div>
+  <div id="perms"></div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = (id) => document.getElementById(id);
+  const video = $('screen');
+  const overlay = $('overlay');
+  const toolbar = $('toolbar');
+  const statusEl = $('status');
+  const statsEl = $('stats');
+  const urlInput = $('url');
+
+  let inputSocket = null;
+  let started = false;
+  let idleTimer = null;
+  let lastTouchAt = 0;
+
+  // With adb reverse, 127.0.0.1:8765 on the tablet is the Mac's bridge.
+  const defaultBase = `${location.protocol}//${location.hostname || '127.0.0.1'}${location.port ? ':' + location.port : ':8765'}`;
+  urlInput.value = localStorage.getItem('webscrcpy.screenBase') || defaultBase;
+
+  const setStatus = (text, kind = '') => {
+    statusEl.textContent = text;
+    statusEl.className = kind;
+  };
+
+  // ------------------------------------------------------------ MediaSource
+  // The bridge sends fragmented MP4, which MSE plays as it arrives. This is
+  // what keeps latency low compared with a plain <video src> download.
+  function supportsMse() {
+    return typeof MediaSource !== 'undefined'
+      && MediaSource.isTypeSupported('video/mp4; codecs="avc1.640028"');
+  }
+
+  // Network chunks split MP4 boxes at arbitrary offsets. appendBuffer rejects a
+  // partial box ("Failed to execute 'appendBuffer'"), which made roughly half
+  // of the streams start black. This accumulates bytes and emits whole
+  // fragments, each starting at a moof box.
+  function createBoxSplitter() {
+    let buffer = new Uint8Array(0);
+
+    const readUint32 = (bytes, offset) =>
+      ((bytes[offset] << 24) >>> 0) + (bytes[offset + 1] << 16)
+      + (bytes[offset + 2] << 8) + bytes[offset + 3];
+
+    return function push(chunk) {
+      const merged = new Uint8Array(buffer.length + chunk.length);
+      merged.set(buffer, 0);
+      merged.set(chunk, buffer.length);
+      buffer = merged;
+
+      // Locate complete box boundaries first.
+      const boxes = [];
+      let offset = 0;
+      for (;;) {
+        if (buffer.length - offset < 8) break;
+        let size = readUint32(buffer, offset);
+        let headerSize = 8;
+        if (size === 1) {
+          if (buffer.length - offset < 16) break;
+          size = Number(readUint32(buffer, offset + 8)) * 4294967296
+            + readUint32(buffer, offset + 12);
+          headerSize = 16;
+        } else if (size === 0) {
+          break; // runs to end of stream; unknown boundary
+        }
+        if (size < headerSize || buffer.length - offset < size) break;
+        boxes.push({
+          type: String.fromCharCode(
+            buffer[offset + 4], buffer[offset + 5],
+            buffer[offset + 6], buffer[offset + 7]),
+          bytes: buffer.subarray(offset, offset + size),
+        });
+        offset += size;
+      }
+      buffer = buffer.subarray(offset);
+
+      // A fragment is one moof plus everything up to the next moof. Anything
+      // before the first moof (ftyp + moov) is the init segment: it must be
+      // appended too, or the decoder never learns the track layout and the
+      // video stays black.
+      const segments = [];
+      let current = [];
+      for (const box of boxes) {
+        if (box.type === 'moof' && current.length) {
+          segments.push(concat(current));
+          current = [];
+        }
+        current.push(box.bytes);
+      }
+      if (current.length) {
+        const tail = current[current.length - 1];
+        const tailType = String.fromCharCode(tail[4], tail[5], tail[6], tail[7]);
+        const hasMoof = current.some((b) => b.length > 8
+          && String.fromCharCode(b[4], b[5], b[6], b[7]) === 'moof');
+        // Emit a finished fragment, or the complete init segment on its own.
+        if (tailType === 'mdat' || !hasMoof) {
+          segments.push(concat(current));
+        } else {
+          // Still mid-fragment: carry these boxes into the next chunk.
+          buffer = concat([...current, buffer]);
+        }
+      }
+      return segments;
+    };
+  }
+
+  function concat(parts) {
+    const total = parts.reduce((sum, part) => sum + part.length, 0);
+    const out = new Uint8Array(total);
+    let at = 0;
+    for (const part of parts) {
+      out.set(part, at);
+      at += part.length;
+    }
+    return out;
+  }
+
+  function playWithMse(base) {
+    return new Promise((resolve, reject) => {
+      const ms = new MediaSource();
+      const objectUrl = URL.createObjectURL(ms);
+      video.src = objectUrl;
+
+      ms.addEventListener('sourceopen', async () => {
+        let sourceBuffer;
+        try {
+          sourceBuffer = ms.addSourceBuffer('video/mp4; codecs="avc1.640028"');
+        } catch (err) {
+          reject(new Error('This browser cannot decode the stream.'));
+          return;
+        }
+
+        // Keep the buffer short so playback stays near live.
+        const TRIM_AT = 6;
+        const TRIM_TO = 2;
+        const trim = () => {
+          if (sourceBuffer.updating || ms.readyState !== 'open') return;
+          const buffered = sourceBuffer.buffered;
+          if (!buffered.length) return;
+          const start = buffered.start(0);
+          const end = buffered.end(buffered.length - 1);
+          if (end - start > TRIM_AT) {
+            try { sourceBuffer.remove(start, start + (end - start - TRIM_TO)); } catch {}
+          }
+          // Follow the live edge.
+          if (video.currentTime < end - 1.2) {
+            video.currentTime = end - 0.4;
+          }
+        };
+        sourceBuffer.addEventListener('updateend', trim);
+
+        const queue = [];
+        const pump = () => {
+          if (sourceBuffer.updating || !queue.length) return;
+          try {
+            sourceBuffer.appendBuffer(queue.shift());
+          } catch (err) {
+            reject(new Error('Stream buffer failed.'));
+          }
+        };
+        sourceBuffer.addEventListener('updateend', pump);
+
+        try {
+          const res = await fetch(`${base}/screen?fps=30&width=1920&bitrate=8M`, { cache: 'no-store' });
+          if (!res.ok) throw new Error(`Bridge returned ${res.status}`);
+          const reader = res.body.getReader();
+          const push = createBoxSplitter();
+          resolve();
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            for (const segment of push(value)) queue.push(segment);
+            pump();
+          }
+        } catch (err) {
+          reject(err);
+        }
+      }, { once: true });
+    });
+  }
+
+  // Fallback for browsers without MSE: let the video element download it.
+  function playDirect(base) {
+    video.src = `${base}/screen?fps=30&width=1920&bitrate=8M`;
+    video.play().catch(() => {});
+    return Promise.resolve();
+  }
+
+  // ------------------------------------------------------------ input
+  function openInput(base) {
+    const wsBase = base.replace(/^http/, 'ws');
+    try {
+      inputSocket = new WebSocket(`${wsBase}/screen-input`);
+    } catch { return; }
+    inputSocket.addEventListener('open', () => {
+      setStatus('Connected', 'ok');
+    });
+    inputSocket.addEventListener('close', () => { inputSocket = null; });
+    inputSocket.addEventListener('error', () => { inputSocket = null; });
+  }
+
+  function send(command) {
+    if (inputSocket && inputSocket.readyState === WebSocket.OPEN) {
+      inputSocket.send(JSON.stringify(command));
+    }
+  }
+
+  // Map a pointer position on the video to normalized screen coordinates.
+  function toScreen(event) {
+    const rect = video.getBoundingClientRect();
+    const vw = video.videoWidth || 16;
+    const vh = video.videoHeight || 9;
+    const scale = Math.min(rect.width / vw, rect.height / vh);
+    const dw = vw * scale;
+    const dh = vh * scale;
+    const left = rect.left + (rect.width - dw) / 2;
+    const top = rect.top + (rect.height - dh) / 2;
+    const x = (event.clientX - left) / dw;
+    const y = (event.clientY - top) / dh;
+    return {
+      x: Math.min(Math.max(x, 0), 1),
+      y: Math.min(Math.max(y, 0), 1),
+      inside: x >= 0 && x <= 1 && y >= 0 && y <= 1,
+    };
+  }
+
+  video.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    const p = toScreen(e);
+    if (!p.inside) return;
+    video.setPointerCapture?.(e.pointerId);
+    send({ type: 'down', x: p.x, y: p.y, button: e.button === 2 ? 'right' : 'left' });
+  });
+
+  video.addEventListener('pointermove', (e) => {
+    const p = toScreen(e);
+    if (!p.inside) return;
+    send({ type: 'move', x: p.x, y: p.y });
+  });
+
+  video.addEventListener('pointerup', (e) => {
+    const p = toScreen(e);
+    send({ type: 'up', x: p.x, y: p.y, button: e.button === 2 ? 'right' : 'left' });
+  });
+
+  video.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    send({ type: 'scroll', dy: e.deltaY > 0 ? -1 : 1 });
+  }, { passive: false });
+
+  video.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  // Keyboard: forward printable keys and common control keys.
+  const SPECIAL = {
+    Enter: 36, Escape: 53, Backspace: 51, Tab: 48, ' ': 49,
+    ArrowLeft: 123, ArrowRight: 124, ArrowDown: 125, ArrowUp: 126,
+    Delete: 117, Home: 115, End: 119, PageUp: 116, PageDown: 121,
+  };
+  document.addEventListener('keydown', (e) => {
+    if (!started) return;
+    const code = SPECIAL[e.key];
+    if (code !== undefined) {
+      e.preventDefault();
+      send({ type: 'key', code });
+    } else if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
+      send({ type: 'text', text: e.key });
+    }
+  });
+
+  // ------------------------------------------------------------ chrome
+  function showToolbar() {
+    toolbar.classList.remove('idle');
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => toolbar.classList.add('idle'), 2600);
+  }
+
+  ['pointermove', 'pointerdown', 'keydown'].forEach((name) => {
+    document.addEventListener(name, showToolbar, { passive: true });
+  });
+
+  $('btnFull').addEventListener('click', async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen();
+    } catch {}
+  });
+
+  $('btnStop').addEventListener('click', () => {
+    location.reload();
+  });
+
+  // ------------------------------------------------------------ start
+  // Show which macOS permissions are still missing, before the user starts.
+  async function showPermissions(base) {
+    const perms = $('perms');
+    try {
+      const res = await fetch(`${base}/screen/permissions`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const info = await res.json();
+      const rows = [
+        ['Screen Recording', info.screenRecording],
+        ['Accessibility', info.accessibility],
+      ];
+      perms.innerHTML = rows.map(([name, ok]) =>
+        `<div class="row"><span class="dot ${ok ? 'ok' : 'bad'}"></span>` +
+        `${name}${ok ? '' : ' — needs approval on the Mac'}</div>`).join('');
+      perms.classList.add('show');
+      if (!info.accessibility) {
+        setStatus('Enable Accessibility on your Mac to control it from here.', 'err');
+      }
+    } catch {}
+  }
+
+  async function start() {
+    const base = urlInput.value.trim().replace(/\/$/, '');
+    if (!base) { setStatus('Enter the bridge address.', 'err'); return; }
+    localStorage.setItem('webscrcpy.screenBase', base);
+
+    $('btnStart').disabled = true;
+    setStatus('Connecting…');
+
+    try {
+      // Fail fast with a useful message if the bridge is not reachable.
+      const health = await fetch(`${base}/devices`, { cache: 'no-store' })
+        .catch(() => null);
+      if (!health) throw new Error(
+        'Cannot reach the bridge. Is the cable connected and the helper running?');
+
+      openInput(base);
+      if (supportsMse()) await playWithMse(base);
+      else await playDirect(base);
+
+      video.classList.remove('hidden');
+      overlay.classList.add('gone');
+      started = true;
+      await video.play().catch(() => {});
+      setStatus('Connected', 'ok');
+      showToolbar();
+      // Best effort fullscreen (needs a user gesture; the click above counts).
+      document.documentElement.requestFullscreen?.().catch(() => {});
+    } catch (err) {
+      $('btnStart').disabled = false;
+      setStatus(err.message || 'Could not start the stream.', 'err');
+    }
+  }
+
+  $('btnStart').addEventListener('click', start);
+  urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') start(); });
+
+  // Check permissions on load so the user knows before tapping Start.
+  showPermissions(urlInput.value.trim().replace(/\/$/, ''));
+
+  // ------------------------------------------------------------ stats
+  setInterval(() => {
+    if (!started) return;
+    const v = video;
+    const buffered = v.buffered.length ? v.buffered.end(v.buffered.length - 1) : 0;
+    const lag = buffered ? Math.max(0, buffered - v.currentTime) : 0;
+    const fps = v.getVideoPlaybackQuality?.().totalVideoFrames || 0;
+    statsEl.textContent = `${fps}f · ${lag.toFixed(1)}s buffer`;
+  }, 1000);
+})();
+</script>
+</body>
+</html>

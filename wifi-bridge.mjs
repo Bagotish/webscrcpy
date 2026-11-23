@@ -5,7 +5,7 @@ import net from 'node:net';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execSync, execFile, execFileSync } from 'node:child_process';
+import { execSync, execFile, execFileSync, spawn, spawnSync } from 'node:child_process';
 import os from 'node:os';
 import { discoverAdb } from './mdns.mjs';
 
@@ -213,7 +213,7 @@ async function onRequest(request, response) {
     response.end();
     return;
   }
-  if (request.method === 'GET' && (request.url.startsWith('/discover') || request.url.startsWith('/probe') || request.url.startsWith('/devices') || request.url.startsWith('/pair'))) {
+  if (request.method === 'GET' && (request.url.startsWith('/discover') || request.url.startsWith('/probe') || request.url.startsWith('/devices') || request.url.startsWith('/pair') || request.url.startsWith('/screen'))) {
     // These endpoints make the bridge dial arbitrary hosts: refuse any origin that
     // is not the app, otherwise a random website could use this Mac as a scanner.
     if (!allowedOrigin(origin)) {
@@ -361,18 +361,328 @@ async function onRequest(request, response) {
     });
     return;
   }
+  // Serve the second-screen page from the bridge so the tablet needs nothing
+  // but the cable: http://127.0.0.1:8765/second-screen.html
+  if (request.method === 'GET' && (request.url === '/second-screen.html' || request.url.startsWith('/second-screen.html?'))) {
+    const pagePath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'second-screen.html');
+    if (!fs.existsSync(pagePath)) {
+      response.writeHead(404, { 'content-type': 'text/plain' });
+      response.end('second-screen.html is missing.\n');
+      return;
+    }
+    response.writeHead(200, {
+      'content-type': 'text/html; charset=utf-8',
+      'cache-control': 'no-store',
+    });
+    response.end(fs.readFileSync(pagePath));
+    return;
+  }
+
+  // Stream the Mac's display as fragmented MP4 for second-screen mode.
+  if (request.method === 'GET' && request.url.startsWith('/screen')) {
+    if (!SECOND_SCREEN_SUPPORTED) {
+      response.writeHead(501, {
+        'content-type': 'application/json',
+        'cache-control': 'no-store',
+        'access-control-allow-origin': allowedOrigin(origin) ? (origin || '*') : 'null',
+        'vary': 'Origin',
+      });
+      response.end(JSON.stringify({
+        ok: false,
+        message: 'Second-screen mode is currently macOS only.',
+      }));
+      return;
+    }
+  }
+
+  if (request.method === 'GET' && request.url.startsWith('/screen/permissions')) {
+    response.writeHead(200, {
+      'content-type': 'application/json',
+      'cache-control': 'no-store',
+      'access-control-allow-origin': allowedOrigin(origin) ? (origin || '*') : 'null',
+      'vary': 'Origin',
+    });
+    response.end(JSON.stringify({ ok: true, ...screenPermissions() }));
+    return;
+  }
+
+  if (request.method === 'GET' && request.url.startsWith('/screen')) {
+    const query = new URL(request.url, 'http://localhost').searchParams;
+    startScreenStream(response, query, origin);
+    return;
+  }
+
   response.writeHead(200, { 'content-type': 'text/plain' });
   response.end('webscrcpy wifi bridge\n');
 }
 
-function onUpgrade(request, socket, head) {
+// ---------------------------------------------------------------- second screen
+// Second-screen mode drives macOS-only capture (AVFoundation) and input
+// (CoreGraphics), so it is only offered on Darwin.
+const SECOND_SCREEN_SUPPORTED = process.platform === 'darwin';
+
+// Stream this Mac's display to a tablet/phone over USB (adb reverse) so it can
+// act as a second monitor. Capture and encoding run in a Python helper that
+// drives ffmpeg; this process only relays bytes and forwards input events.
+
+const SECOND_SCREEN_STREAM = path.join(path.dirname(fileURLToPath(import.meta.url)), 'second-screen-stream.py');
+const SECOND_SCREEN_INPUT = path.join(path.dirname(fileURLToPath(import.meta.url)), 'second-screen-input.py');
+
+let streamProc = null;
+let streamStartedAt = 0;
+let inputProc = null;
+
+function pythonBin() {
+  for (const candidate of [
+    process.env.PYTHON,
+    '/opt/homebrew/bin/python3',
+    '/usr/local/bin/python3',
+    '/usr/bin/python3',
+  ]) {
+    if (!candidate) continue;
+    try {
+      execFileSync(candidate, ['--version'], { stdio: 'ignore', timeout: 5000 });
+      return candidate;
+    } catch {}
+  }
+  return null;
+}
+
+// Stop the active capture and wait for it to actually exit. ffmpeg holds the
+// AVFoundation screen device exclusively: starting a second capture before the
+// first releases it makes ffmpeg report a bogus "Selected pixel format
+// (yuv420p) is not supported by the input device" and emit zero bytes.
+function stopStream() {
+  return new Promise((resolve) => {
+    const child = streamProc;
+    streamProc = null;
+    if (!child) {
+      resolve();
+      return;
+    }
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    // It may already be gone (the tablet closed its tab a moment ago).
+    if (child.exitCode !== null || child.signalCode !== null) {
+      done();
+      return;
+    }
+    child.once('exit', done);
+    // SIGTERM only: the wrapper forwards it to its own process group so ffmpeg
+    // dies too. SIGKILL would strand ffmpeg holding the screen device.
+    try { child.kill('SIGTERM'); } catch {}
+    setTimeout(done, 5000);
+  });
+}
+
+function captureProcesses() {
+  try {
+    const out = execFileSync('pgrep', ['-f', 'avfoundation.*-i 2:none'], {
+      encoding: 'utf8', timeout: 5000,
+    });
+    return out.split('\n').map((s) => s.trim()).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+// Wait until nothing holds the screen capture device. Cleans up stragglers from
+// a crashed or reloaded session, which would otherwise break the new capture.
+async function waitForCaptureFree(timeoutMs = 6000) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const pids = captureProcesses();
+    if (!pids.length) {
+      // The device is released a moment after the process disappears.
+      await new Promise((r) => setTimeout(r, 250));
+      if (!captureProcesses().length) return true;
+    }
+    for (const pid of pids) {
+      try { process.kill(Number(pid), 'SIGTERM'); } catch {}
+    }
+    if (Date.now() > deadline) return false;
+    await new Promise((r) => setTimeout(r, 300));
+  }
+}
+
+async function startScreenStream(response, query, origin) {
+  const py = pythonBin();
+  if (!py) {
+    response.writeHead(500, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({ ok: false, message: 'python3 not found.' }));
+    return;
+  }
+  if (!fs.existsSync(SECOND_SCREEN_STREAM)) {
+    response.writeHead(500, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({ ok: false, message: 'second-screen-stream.py is missing.' }));
+    return;
+  }
+
+  // One capture at a time: two ffmpeg screen grabs would fight over the device.
+  await stopStream();
+  if (!(await waitForCaptureFree())) {
+    console.error('[screen] capture device still busy; starting anyway');
+  }
+
+  const args = [
+    SECOND_SCREEN_STREAM,
+    '--fps', String(Math.min(Math.max(Number(query.get('fps')) || 30, 5), 60)),
+    '--width', String(Math.min(Math.max(Number(query.get('width')) || 1920, 480), 3840)),
+    '--bitrate', String(query.get('bitrate') || '8M'),
+  ];
+
+  const child = spawn(py, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+  streamProc = child;
+  streamStartedAt = Date.now();
+  let bytes = 0;
+
+  response.writeHead(200, {
+    'content-type': 'video/mp4',
+    'cache-control': 'no-store',
+    'access-control-allow-origin': allowedOrigin(origin) ? (origin || '*') : 'null',
+    'vary': 'Origin',
+  });
+
+  child.stdout.on('data', (chunk) => {
+    bytes += chunk.length;
+    if (!response.write(chunk)) {
+      // Backpressure: pause until the client drains, otherwise a slow tablet
+      // makes the pipe buffer balloon.
+      child.stdout.pause();
+      response.once('drain', () => child.stdout.resume());
+    }
+  });
+
+  child.stderr.on('data', (chunk) => {
+    const text = chunk.toString().trim();
+    if (text) console.error('[screen]', text.split('\n').slice(-2).join(' '));
+  });
+
+  const stop = () => {
+    try { child.kill('SIGTERM'); } catch {}
+    if (streamProc === child) streamProc = null;
+  };
+  child.on('exit', (code) => {
+    console.log(`[screen] capture stopped (code ${code}) after ${((Date.now() - streamStartedAt) / 1000).toFixed(1)}s, ${(bytes / 1048576).toFixed(1)}MB`);
+    if (streamProc === child) streamProc = null;
+    try { response.end(); } catch {}
+  });
+  // The tablet closing the tab must stop capture immediately.
+  response.on('close', stop);
+  response.on('error', stop);
+}
+
+// Report the two macOS permissions second-screen mode needs, so the tablet can
+// show a clear instruction instead of silently doing nothing.
+function screenPermissions() {
+  const py = pythonBin();
+  const result = {
+    accessibility: false,
+    screenRecording: false,
+    helper: process.execPath,
+    python: py,
+  };
+  if (py) {
+    try {
+      const out = execFileSync(py, ['-c', [
+        'import ctypes,ctypes.util',
+        'cg=ctypes.cdll.LoadLibrary(ctypes.util.find_library("ApplicationServices"))',
+        'cg.AXIsProcessTrusted.restype=ctypes.c_bool',
+        'print(cg.AXIsProcessTrusted())',
+      ].join('\n')], { encoding: 'utf8', timeout: 8000 }).trim();
+      result.accessibility = out.endsWith('True');
+    } catch {}
+  }
+  // Screen recording: ffmpeg lists the capture device only if it may read it.
+  // Note: the device list goes to stderr, not stdout.
+  try {
+    const ffmpeg = findFfmpeg();
+    if (ffmpeg) {
+      const probe = spawnSync(ffmpeg, ['-hide_banner', '-f', 'avfoundation',
+        '-list_devices', 'true', '-i', ''], { encoding: 'utf8', timeout: 15000 });
+      const text = `${probe.stderr || ''}${probe.stdout || ''}`;
+      result.screenRecording = text.includes('Capture screen');
+    }
+  } catch {}
+  return result;
+}
+
+function findFfmpeg() {
+  for (const candidate of [
+    '/opt/homebrew/bin/ffmpeg',
+    '/usr/local/bin/ffmpeg',
+    path.join(os.homedir(), 'homebrew', 'bin', 'ffmpeg'),
+    '/usr/bin/ffmpeg',
+  ]) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+// Bridge the tablet's pointer/keyboard to the Mac via the Python injector.
+function startScreenInput(request, socket, head) {
+  const py = pythonBin();
+  if (!py || !fs.existsSync(SECOND_SCREEN_INPUT)) {
+    socket.write('HTTP/1.1 500 Internal Server Error\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+  // Single injector process: it owns stdin for the whole session.
+  if (inputProc) {
+    try { inputProc.kill('SIGTERM'); } catch {}
+    inputProc = null;
+  }
+  const child = spawn(py, [SECOND_SCREEN_INPUT], { stdio: ['pipe', 'pipe', 'pipe'] });
+  inputProc = child;
+
+  child.stdout.on('data', (chunk) => {
+    const text = chunk.toString().trim();
+    if (text) console.log('[input]', text);
+  });
+  child.stderr.on('data', (chunk) => {
+    const text = chunk.toString().trim();
+    if (text) console.error('[input]', text.split('\n').slice(-2).join(' '));
+  });
+  child.on('exit', () => { if (inputProc === child) inputProc = null; });
+
+  // Reuse the relay's frame reader: text frames carry one JSON command each.
   const readExact = frameReader(socket, head);
+  (async () => {
+    try {
+      for (;;) {
+        const frame = await readFrame(readExact);
+        if (frame.opcode === 0x8) break;          // close
+        if (frame.opcode === 0x9) continue;       // ping
+        if (frame.opcode !== 0x1) continue;       // only text carries commands
+        const line = frame.payload.toString('utf8');
+        if (line === 'bye') break;
+        try { child.stdin.write(line + '\n'); } catch {}
+      }
+    } catch {}
+    try { child.stdin.end(); } catch {}
+    try { socket.end(); } catch {}
+  })();
+
+  const stop = () => {
+    try { child.kill('SIGTERM'); } catch {}
+    if (inputProc === child) inputProc = null;
+  };
+  socket.on('close', stop);
+  socket.on('error', stop);
+}
+
+function onUpgrade(request, socket, head) {
   const origin = request.headers.origin || '';
   if (!allowedOrigin(origin)) {
     socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
     socket.destroy();
     return;
   }
+  const pathname = (request.url || '/').split('?')[0];
   const key = request.headers['sec-websocket-key'];
   const acceptKey = crypto.createHash('sha1').update(`${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest('base64');
   socket.write(
@@ -384,6 +694,14 @@ function onUpgrade(request, socket, head) {
     'Access-Control-Allow-Private-Network: true\r\n' +
     '\r\n',
   );
+  // Second-screen input has its own protocol: JSON commands straight to the
+  // macOS event injector, no ADB relay handshake. It builds its own frame
+  // reader, so return before creating one here.
+  if (pathname === '/screen-input') {
+    startScreenInput(request, socket, head);
+    return;
+  }
+  const readExact = frameReader(socket, head);
   (async () => {
     try {
       const first = await readFrame(readExact);
