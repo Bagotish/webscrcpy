@@ -3,14 +3,14 @@
 #
 #   ./second-screen.sh
 #
-# Connects a tablet or phone as a second screen for this Mac over a USB cable.
-# Uses `adb reverse` so the tablet reaches the bridge at 127.0.0.1 — no Wi-Fi,
+# Connects a phone or tablet as a second screen for this Mac over a USB cable.
+# Uses `adb reverse` so the device reaches the bridge at 127.0.0.1 — no Wi-Fi,
 # no IP address, and nothing to type.
 set -u
 cd "$(dirname "$0")"
 
 BRIDGE_PORT="${WIFI_BRIDGE_PORT:-8765}"
-TABLET_URL="http://127.0.0.1:${BRIDGE_PORT}/second-screen.html"
+DEVICE_URL="http://127.0.0.1:${BRIDGE_PORT}/second-screen.html"
 
 say() { printf '%s\n' "$*"; }
 die() { printf '\n❌ %s\n' "$*" >&2; exit 1; }
@@ -34,7 +34,7 @@ say "✅ adb: $ADB_BIN"
 
 # ---------------------------------------------------------------- device
 say ""
-say "🔌 Plug the tablet in with a USB cable"
+say "🔌 Plug your phone or tablet in with a USB cable"
 say "   Unlock it and tap 'Allow' when it asks about USB debugging."
 say ""
 
@@ -46,8 +46,8 @@ for i in $(seq 1 30); do
     sleep 1
 done
 say ""
-[ -n "$SERIAL" ] || die "No USB device detected. Check the cable, unlock the tablet, and allow USB debugging."
-say "✅ Tablet: $SERIAL"
+[ -n "$SERIAL" ] || die "No USB device detected. Check the cable, unlock it, and allow USB debugging."
+say "✅ Device: $SERIAL"
 
 MODEL=$("$ADB_BIN" -s "$SERIAL" shell getprop ro.product.model 2>/dev/null | tr -d '\r')
 say "   Model: ${MODEL:-unknown}"
@@ -71,39 +71,39 @@ fi
 say "✅ Helper running on port ${BRIDGE_PORT}"
 
 # ---------------------------------------------------------------- reverse
-# The tablet's 127.0.0.1:8765 is forwarded to this Mac's bridge. This is what
+# The device's 127.0.0.1:8765 is forwarded to this Mac's bridge. This is what
 # removes the need for Wi-Fi or an IP address.
 say ""
-say "🔗 Wiring the tablet to this Mac…"
+say "🔗 Wiring the device to this Mac…"
 "$ADB_BIN" -s "$SERIAL" reverse --remove-all >/dev/null 2>&1
 if ! "$ADB_BIN" -s "$SERIAL" reverse "tcp:${BRIDGE_PORT}" "tcp:${BRIDGE_PORT}" >/dev/null 2>&1; then
     die "adb reverse failed. Some devices disable it; try another cable or port."
 fi
-say "✅ 127.0.0.1:${BRIDGE_PORT} on the tablet → this Mac"
+say "✅ 127.0.0.1:${BRIDGE_PORT} on the device → this Mac"
 
 # ---------------------------------------------------------------- open it
 say ""
-say "🚀 Opening the second screen on the tablet…"
+say "🚀 Opening the second screen on the device…"
 "$ADB_BIN" -s "$SERIAL" shell am start \
     -a android.intent.action.VIEW \
-    -d "$TABLET_URL" >/dev/null 2>&1 || true
+    -d "$DEVICE_URL" >/dev/null 2>&1 || true
 
-# Some tablets open the browser in the background; bring it forward.
+# Some devices open the browser in the background; bring it forward.
 "$ADB_BIN" -s "$SERIAL" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
 "$ADB_BIN" -s "$SERIAL" shell wm dismiss-keyguard >/dev/null 2>&1 || true
 "$ADB_BIN" -s "$SERIAL" shell am start \
     -a android.intent.action.VIEW \
-    -d "$TABLET_URL" >/dev/null 2>&1 || true
+    -d "$DEVICE_URL" >/dev/null 2>&1 || true
 
 say ""
 say "=================================================="
 say "🎉 Second screen is ready"
 say ""
-say "   Tablet : $TABLET_URL"
+say "   Open: $DEVICE_URL"
 say "   If the browser did not open, type that address"
-say "   into the tablet's browser manually."
+say "   in the device's browser manually."
 say ""
-say "   Tap 'Start' on the tablet. Your Mac's screen"
+say "   Tap 'Start' on the device. Your Mac's screen"
 say "   appears, and taps control the Mac."
 say "=================================================="
 say ""
@@ -140,7 +140,7 @@ trap 'say ""; say "Stopping…"; "$ADB_BIN" -s "$SERIAL" reverse --remove-all >/
 while true; do
     sleep 5
     if ! "$ADB_BIN" devices 2>/dev/null | grep -q "^${SERIAL}.*device"; then
-        say "⚠️  Tablet disconnected."
+        say "⚠️  Device disconnected."
         exit 1
     fi
 done
