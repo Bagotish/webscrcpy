@@ -71,7 +71,8 @@ import {
     const statusDot = document.getElementById('statusDot');
     const settingsPanel = document.getElementById('settingsPanel');
     const btnSettings = document.getElementById('btnSettings');
-    const btnPip = document.getElementById('btnPip');
+    const secondScreenPanel = document.getElementById('secondScreenPanel');
+    const btnSecondScreen = document.getElementById('btnSecondScreen');    const btnPip = document.getElementById('btnPip');
     const btnFullscreen = document.getElementById('btnFullscreen');
     let pipWindow = null;
     let pipStream = null;
@@ -153,6 +154,7 @@ import {
         toggleDevices(false);
         toggleDownload(false);
         toggleChangelog(false);
+        toggleSecondScreen(false);
       }
       settingsPanel.classList.toggle('closed', !open);
       btnSettings.classList.toggle('bg-zinc-800', open);
@@ -164,6 +166,7 @@ import {
         toggleSettings(false);
         toggleDownload(false);
         toggleChangelog(false);
+        toggleSecondScreen(false);
         refreshDeviceList();
         // Show nearby phones immediately — no IP typing needed.
         refreshDiscovered(true).catch(() => {});
@@ -176,6 +179,7 @@ import {
         toggleSettings(false);
         toggleDevices(false);
         toggleChangelog(false);
+        toggleSecondScreen(false);
         guessPlatform();
       }
       downloadPanel.classList.toggle('closed', !open);
@@ -188,12 +192,57 @@ import {
         toggleSettings(false);
         toggleDevices(false);
         toggleDownload(false);
+        toggleSecondScreen(false);
         const badge = document.getElementById('changelogBadge');
         if (badge) badge.classList.add('hidden');
       }
       changelogPanel.classList.toggle('closed', !open);
       btnChangelog.classList.toggle('bg-zinc-800', open);
       btnChangelog.classList.toggle('text-white', open);
+    }
+
+    async function refreshSecondScreenPerms() {
+      const unsupported = document.getElementById('secondScreenUnsupported');
+      const permsBox = document.getElementById('secondScreenPerms');
+      const rows = document.getElementById('secondScreenPermRows');
+      if (!permsBox || !rows) return;
+      try {
+        const res = await fetch(`${bridgeBase()}/screen/permissions`, { cache: 'no-store' });
+        if (res.status === 501) {
+          unsupported.classList.remove('hidden');
+          permsBox.classList.add('hidden');
+          return;
+        }
+        if (!res.ok) return;
+        unsupported.classList.add('hidden');
+        const info = await res.json();
+        const items = [
+          ['Screen Recording', info.screenRecording],
+          ['Accessibility', info.accessibility],
+        ];
+        rows.innerHTML = items.map(([name, ok]) =>
+          `<div class="flex items-center gap-2 text-[11px]">
+            <span class="w-1.5 h-1.5 rounded-full ${ok ? 'bg-emerald-400' : 'bg-amber-400'}"></span>
+            <span class="text-zinc-300">${name}</span>
+            <span class="text-zinc-500">${ok ? 'allowed' : 'needs approval on the Mac'}</span>
+          </div>`).join('');
+        permsBox.classList.remove('hidden');
+      } catch {
+        // Bridge not reachable: leave the panel quiet.
+      }
+    }
+
+    function toggleSecondScreen(open = secondScreenPanel.classList.contains('closed')) {
+      if (open) {
+        toggleSettings(false);
+        toggleDevices(false);
+        toggleDownload(false);
+        toggleChangelog(false);
+        refreshSecondScreenPerms().catch(() => {});
+      }
+      secondScreenPanel.classList.toggle('closed', !open);
+      btnSecondScreen.classList.toggle('bg-zinc-800', open);
+      btnSecondScreen.classList.toggle('text-white', open);
     }
 
     btnSettings.addEventListener('click', (e) => {
@@ -204,6 +253,10 @@ import {
       e.stopPropagation();
       toggleDownload();
     });
+    btnSecondScreen.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleSecondScreen();
+    });
     btnChangelog.addEventListener('click', (e) => {
       e.stopPropagation();
       toggleChangelog();
@@ -212,6 +265,11 @@ import {
     document.getElementById('btnCloseDevices').addEventListener('click', () => toggleDevices(false));
     document.getElementById('btnCloseDownload').addEventListener('click', () => toggleDownload(false));
     document.getElementById('btnCloseChangelog').addEventListener('click', () => toggleChangelog(false));
+    document.getElementById('btnCloseSecondScreen').addEventListener('click', () => toggleSecondScreen(false));
+    document.getElementById('btnCopySecondScreen')?.addEventListener('click', () => {
+      const cmd = document.getElementById('secondScreenCmd')?.textContent || '';
+      copyCommand(cmd, document.getElementById('txtCopySecondScreen'));
+    });
 
     // Copy a command, falling back to selecting it when the clipboard API is
     // blocked (insecure origin, denied permission, embedded webview).

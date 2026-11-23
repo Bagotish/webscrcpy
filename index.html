@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>WebScrcpy — Mirror & Control Android from Your Browser</title>
   <meta name="description" content="Mirror and control your Android phone from a web browser over USB or Wi-Fi. No app install needed.">
-//
   <meta property="og:title" content="WebScrcpy — Android Mirroring in Your Browser">
   <meta property="og:description" content="Mirror and control your Android phone from a web browser over USB or Wi-Fi. No app install needed.">
   <meta property="og:type" content="website">
@@ -100,7 +99,7 @@
     @media (max-width: 640px) {
       #screenTools { left: 0.25rem; padding: 0.25rem; gap: 0.125rem; }
       #screenTools button { width: 1.75rem; height: 1.75rem; }
-      #downloadPanel, #changelogPanel, #devicePanel, #settingsPanel {
+      #downloadPanel, #changelogPanel, #devicePanel, #settingsPanel, #secondScreenPanel {
         left: 0.5rem; right: 0.5rem; width: auto; max-width: none;
       }
     }
@@ -148,6 +147,9 @@
       </button>
       <button id="btnDownloadHelper" title="Wi-Fi Bridge Helper" class="w-8 h-8 rounded-full border border-zinc-800/60 bg-zinc-900/50 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition flex items-center justify-center">
         <i class="fa-solid fa-wifi text-xs"></i>
+      </button>
+      <button id="btnSecondScreen" title="Second Screen (USB)" class="w-8 h-8 rounded-full border border-zinc-800/60 bg-zinc-900/50 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition flex items-center justify-center">
+        <i class="fa-solid fa-display text-xs"></i>
       </button>
       <button id="btnSettings" title="Settings" class="w-8 h-8 rounded-full border border-zinc-800/60 bg-zinc-900/50 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition flex items-center justify-center">
         <i class="fa-solid fa-sliders text-xs"></i>
@@ -687,6 +689,77 @@
         <input type="text" id="termInput" placeholder="getprop ro.product.model" class="flex-1 min-w-0 bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-[11px] text-zinc-200 font-mono placeholder:text-zinc-700 focus:outline-none focus:border-zinc-600">
         <button type="submit" class="px-3 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] font-medium transition">Run</button>
       </form>
+    </div>
+  </div>
+
+  <!-- POPOUT: SECOND SCREEN -->
+  <div id="secondScreenPanel" class="popout closed fixed top-14 right-4 z-40 w-[380px] max-w-[calc(100vw-2rem)] rounded-2xl bg-zinc-900/95 backdrop-blur-xl border border-zinc-800/80 shadow-2xl p-4 space-y-3.5">
+    <div class="flex items-center justify-between px-1">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-display text-xs text-zinc-400"></i>
+        <span class="text-xs font-semibold text-zinc-200">Second Screen</span>
+      </div>
+      <button id="btnCloseSecondScreen" class="w-6 h-6 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
+        <i class="fa-solid fa-xmark text-xs"></i>
+      </button>
+    </div>
+
+    <p class="text-[11px] text-zinc-500 leading-relaxed px-1">
+      Turn a phone or tablet into a second monitor for this Mac over a USB cable. No Wi-Fi needed.
+    </p>
+
+    <!-- Not supported banner (shown on non-macOS via the bridge's 501) -->
+    <div id="secondScreenUnsupported" class="hidden rounded-xl bg-zinc-950 border border-zinc-800/80 p-3 text-[11px] text-zinc-400 leading-relaxed">
+      Second-screen mode is currently macOS only.
+    </div>
+
+    <!-- Permission status -->
+    <div id="secondScreenPerms" class="hidden rounded-xl bg-zinc-950 border border-zinc-800/80 p-3 space-y-2">
+      <span class="text-[11px] font-medium text-zinc-300 flex items-center gap-1.5">
+        <i class="fa-solid fa-shield-halved text-[10px] text-zinc-400"></i> macOS permissions
+      </span>
+      <div id="secondScreenPermRows" class="space-y-1.5"></div>
+    </div>
+
+    <!-- Start -->
+    <div class="rounded-xl bg-zinc-950 border border-zinc-800/80 p-3 space-y-2">
+      <span class="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
+        <span class="w-4 h-4 rounded-full bg-zinc-800 text-zinc-400 text-[9px] font-semibold flex items-center justify-center shrink-0">1</span>
+        Plug in the device
+      </span>
+      <p class="text-[10px] text-zinc-500 leading-normal pl-5">
+        Connect a phone or tablet by USB. Unlock it and allow USB debugging when prompted.
+      </p>
+    </div>
+
+    <div class="rounded-xl bg-zinc-950 border border-zinc-800/80 p-3 space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
+          <span class="w-4 h-4 rounded-full bg-zinc-800 text-zinc-400 text-[9px] font-semibold flex items-center justify-center shrink-0">2</span>
+          Start from Terminal
+        </span>
+        <button id="btnCopySecondScreen" type="button" class="text-[10px] text-zinc-300 hover:text-white px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-700 hover:border-zinc-500 transition flex items-center gap-1 shrink-0">
+          <i class="fa-solid fa-copy text-[9px]"></i> <span id="txtCopySecondScreen">Copy</span>
+        </button>
+      </div>
+      <div class="font-mono text-[10px] text-zinc-300 bg-zinc-900/60 p-2 rounded-lg border border-zinc-800 break-all select-all">
+        <code id="secondScreenCmd">curl -fsSL https://webscrcpy.vercel.app/second-screen.sh | bash</code>
+      </div>
+      <p class="text-[10px] text-zinc-500 leading-normal">
+        Finds the device, wires it over USB, and opens the second-screen page on it. Or open this on the device directly:
+      </p>
+      <div class="font-mono text-[10px] text-zinc-400 bg-zinc-900/60 p-2 rounded-lg border border-zinc-800 break-all select-all">
+        <code id="secondScreenUrl">http://127.0.0.1:8765/second-screen.html</code>
+      </div>
+    </div>
+
+    <div class="rounded-xl bg-zinc-950 border border-zinc-800/80 p-3 space-y-1.5">
+      <span class="text-[11px] font-medium text-zinc-400">How it works</span>
+      <ul class="text-[10px] text-zinc-500 leading-relaxed space-y-1 pl-1">
+        <li>• <span class="text-zinc-400">Mirror</span> — your Mac's screen is shown on the device.</li>
+        <li>• <span class="text-zinc-400">Control</span> — taps, drags, scrolls and keys go back to the Mac.</li>
+        <li>• <span class="text-zinc-400">USB only</span> — uses <code class="text-zinc-400">adb reverse</code>, no Wi-Fi or IP address.</li>
+      </ul>
     </div>
   </div>
 

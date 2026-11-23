@@ -361,6 +361,44 @@ async function onRequest(request, response) {
     });
     return;
   }
+  // Serve the app's own page at / so the bridge is a usable origin for
+  // second-screen mode and local testing without a separate web server.
+  if (request.method === 'GET' && (request.url === '/' || request.url.startsWith('/?'))) {
+    const pagePath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'index.html');
+    if (fs.existsSync(pagePath)) {
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+      response.end(fs.readFileSync(pagePath));
+      return;
+    }
+  }
+
+  // Serve the app.js module referenced by index.html.
+  if (request.method === 'GET' && (request.url === '/app.js' || request.url.startsWith('/app.js?'))) {
+    const jsPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'app.js');
+    if (fs.existsSync(jsPath)) {
+      response.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store' });
+      response.end(fs.readFileSync(jsPath));
+      return;
+    }
+  }
+
+  // Serve the second-screen launcher from the bridge so the copy-paste command
+  // works against 127.0.0.1 without waiting for a deploy.
+  if (request.method === 'GET' && (request.url === '/second-screen.sh' || request.url.startsWith('/second-screen.sh?'))) {
+    const scriptPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'second-screen.sh');
+    if (!fs.existsSync(scriptPath)) {
+      response.writeHead(404, { 'content-type': 'text/plain' });
+      response.end('second-screen.sh is missing.\n');
+      return;
+    }
+    response.writeHead(200, {
+      'content-type': 'text/x-shellscript; charset=utf-8',
+      'cache-control': 'no-store',
+    });
+    response.end(fs.readFileSync(scriptPath));
+    return;
+  }
+
   // Serve the second-screen page from the bridge so the tablet needs nothing
   // but the cable: http://127.0.0.1:8765/second-screen.html
   if (request.method === 'GET' && (request.url === '/second-screen.html' || request.url.startsWith('/second-screen.html?'))) {
