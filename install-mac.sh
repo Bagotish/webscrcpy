@@ -699,6 +699,26 @@ async function onRequest(request, response) {
     }
   }
 
+  // Serve the remaining assets the app's origin needs: the ADB/scrcpy module
+  // bundle and the scrcpy server binary pushed to the phone. Without these the
+  // page loads but every module import fails and no handler ever attaches.
+  if (request.method === 'GET' && (request.url === '/tango-bundle.js' || request.url.startsWith('/tango-bundle.js?'))) {
+    const bundlePath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'tango-bundle.js');
+    if (fs.existsSync(bundlePath)) {
+      response.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store' });
+      response.end(fs.readFileSync(bundlePath));
+      return;
+    }
+  }
+  if (request.method === 'GET' && (request.url === '/scrcpy-server-v3.3.3' || request.url.startsWith('/scrcpy-server-v3.3.3?'))) {
+    const serverPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'scrcpy-server-v3.3.3');
+    if (fs.existsSync(serverPath)) {
+      response.writeHead(200, { 'content-type': 'application/octet-stream', 'cache-control': 'no-store' });
+      response.end(fs.readFileSync(serverPath));
+      return;
+    }
+  }
+
   // Serve the second-screen launcher from the bridge so the copy-paste command
   // works against 127.0.0.1 without waiting for a deploy.
   if (request.method === 'GET' && (request.url === '/second-screen.sh' || request.url.startsWith('/second-screen.sh?'))) {
