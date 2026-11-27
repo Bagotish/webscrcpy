@@ -523,7 +523,7 @@ async function onRequest(request, response) {
     response.end();
     return;
   }
-  if (request.method === 'GET' && (request.url.startsWith('/discover') || request.url.startsWith('/probe') || request.url.startsWith('/devices') || request.url.startsWith('/pair') || request.url.startsWith('/screen'))) {
+  if (request.method === 'GET' && (request.url.startsWith('/discover') || request.url.startsWith('/probe') || request.url.startsWith('/devices') || request.url.startsWith('/pair') || request.url.startsWith('/screen') || request.url.startsWith('/share'))) {
     // These endpoints make the bridge dial arbitrary hosts: refuse any origin that
     // is not the app, otherwise a random website could use this Mac as a scanner.
     if (!allowedOrigin(origin)) {
@@ -541,6 +541,14 @@ async function onRequest(request, response) {
     });
     response.end(JSON.stringify(body));
   };
+
+  // ---------------------------------------------------------------- share
+  // Clipboard/file exchange between this Mac and whatever opened the app
+  // (phone over USB, another computer over Tailscale/LAN). Items live in
+  // memory, capped, and expire after 24h so nothing lingers.
+  if (request.url.startsWith('/share')) {
+    return handleShare(request, response, replyJson);
+  }
 
   // List every phone this Mac can see over mDNS. This is what lets the app
   // connect without the user ever reading an IP off the phone screen.
@@ -1021,6 +1029,170 @@ function startScreenInput(request, socket, head) {
   };
   socket.on('close', stop);
   socket.on('error', stop);
+}
+
+// ---------------------------------------------------------------- share
+// In-memory clipboard/file exchange. Text items are capped, files are streamed
+// to disk under a size cap, everything expires after a day.
+const SHARE_MAX_TEXT = 1 * 1024 * 1024;        // 1 MB of text per item
+const SHARE_MAX_FILE = 500 * 1024 * 1024;      // 500 MB per file
+const SHARE_MAX_TOTAL = 1024 * 1024 * 1024;    // 1 GB across everything
+const SHARE_TTL_MS = 24 * 60 * 60 * 1000;      // expire after a day
+const shareDir = fs.mkdtempSync(path.join(os.tmpdir(), 'webscrcpy-share-'));
+const shareItems = new Map(); // id -> {kind, name, text?, file?, size, mime, at}
+let shareSeq = 0;
+
+function shareTotalBytes() {
+  let total = 0;
+  for (const item of shareItems.values()) total += item.size;
+  return total;
+}
+
+function shareSweep() {
+  const now = Date.now();
+  for (const [id, item] of shareItems) {
+    if (now - item.at > SHARE_TTL_MS) {
+      if (item.file) fs.rm(item.file, { force: true }, () => {});
+      shareItems.delete(id);
+    }
+  }
+}
+
+function handleShare(request, response, replyJson) {
+  const url = new URL(request.url, 'http://localhost');
+  const pathname = url.pathname;
+  const method = request.method;
+
+  // List everything currently shared.
+  if (method === 'GET' && pathname === '/share') {
+    shareSweep();
+    replyJson(200, {
+      ok: true,
+      items: [...shareItems.entries()].map(([id, item]) => ({
+        id, kind: item.kind, name: item.name, size: item.size,
+        mime: item.mime, at: item.at,
+      })),
+    });
+    return;
+  }
+
+  // Download: /share/<id> for files, /share/<id>/raw for raw text.
+  const downloadMatch = pathname.match(/^\/share\/([a-z0-9]+)(\/raw)?$/);
+  if (method === 'GET' && downloadMatch) {
+    const [, id, raw] = downloadMatch;
+    const item = shareItems.get(id);
+    if (!item) {
+      response.writeHead(404, { 'content-type': 'text/plain' });
+      response.end('gone');
+      return;
+    }
+    if (item.kind === 'text') {
+      response.writeHead(200, {
+        'content-type': 'text/plain; charset=utf-8',
+        'cache-control': 'no-store',
+      });
+      response.end(item.text);
+      return;
+    }
+    if (raw) {
+      response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
+      response.end(item.text);
+      return;
+    }
+    const stat = fs.statSync(item.file);
+    response.writeHead(200, {
+      'content-type': item.mime || 'application/octet-stream',
+      'content-length': stat.size,
+      'content-disposition': `attachment; filename="${encodeURIComponent(item.name)}"`,
+      'cache-control': 'no-store',
+    });
+    fs.createReadStream(item.file).pipe(response);
+    return;
+  }
+
+  // Upload text.
+  if (method === 'POST' && pathname === '/share/text') {
+    let body = '';
+    request.on('data', (chunk) => {
+      body += chunk;
+      if (body.length > SHARE_MAX_TEXT) {
+        replyJson(413, { ok: false, message: 'Text too large (1 MB max).' });
+        request.destroy();
+      }
+    });
+    request.on('end', () => {
+      if (!request.readableEnded && request.destroyed) return;
+      let parsed;
+      try { parsed = JSON.parse(body || '{}'); } catch { parsed = {}; }
+      const text = String(parsed.text ?? body ?? '');
+      if (!text) { replyJson(400, { ok: false, message: 'Empty.' }); return; }
+      const id = `t${++shareSeq}${Date.now().toString(36)}`;
+      shareItems.set(id, {
+        kind: 'text', name: parsed.name || 'text', text,
+        size: Buffer.byteLength(text), mime: 'text/plain', at: Date.now(),
+      });
+      shareSweep();
+      replyJson(200, { ok: true, id });
+    });
+    return;
+  }
+
+  // Upload a file (multipart not needed: the client sends raw bytes + query).
+  if (method === 'POST' && pathname === '/share/file') {
+    shareSweep();
+    if (shareTotalBytes() > SHARE_MAX_TOTAL) {
+      replyJson(507, { ok: false, message: 'Share storage full (1 GB). Remove old items.' });
+      return;
+    }
+    const name = path.basename(url.searchParams.get('name') || 'file.bin');
+    const id = `f${++shareSeq}${Date.now().toString(36)}`;
+    const dest = path.join(shareDir, id);
+    const out = fs.createWriteStream(dest);
+    let size = 0;
+    let aborted = false;
+    request.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > SHARE_MAX_FILE) {
+        aborted = true;
+        replyJson(413, { ok: false, message: 'File too large (500 MB max).' });
+        out.destroy();
+        fs.rm(dest, { force: true }, () => {});
+        request.destroy();
+      } else if (!out.destroyed && !out.write(chunk)) {
+        request.pause();
+        out.once('drain', () => request.resume());
+      }
+    });
+    request.on('end', () => {
+      if (aborted) return;
+      out.end(() => {
+        shareItems.set(id, {
+          kind: 'file', name, file: dest, size,
+          mime: url.searchParams.get('mime') || 'application/octet-stream',
+          at: Date.now(),
+        });
+        replyJson(200, { ok: true, id, size });
+      });
+    });
+    request.on('error', () => {
+      out.destroy();
+      fs.rm(dest, { force: true }, () => {});
+    });
+    return;
+  }
+
+  // Remove one item (frees storage without waiting for the TTL).
+  if (method === 'DELETE' && pathname.startsWith('/share/')) {
+    const id = pathname.slice('/share/'.length).split('/')[0];
+    const item = shareItems.get(id);
+    if (item?.file) fs.rm(item.file, { force: true }, () => {});
+    shareItems.delete(id);
+    replyJson(200, { ok: true });
+    return;
+  }
+
+  response.writeHead(405, { 'content-type': 'text/plain' });
+  response.end('method not allowed');
 }
 
 function onUpgrade(request, socket, head) {

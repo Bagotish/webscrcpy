@@ -99,7 +99,7 @@
     @media (max-width: 640px) {
       #screenTools { left: 0.25rem; padding: 0.25rem; gap: 0.125rem; }
       #screenTools button { width: 1.75rem; height: 1.75rem; }
-      #downloadPanel, #changelogPanel, #devicePanel, #settingsPanel, #secondScreenPanel {
+      #downloadPanel, #changelogPanel, #devicePanel, #settingsPanel, #secondScreenPanel, #sharePanel {
         left: 0.5rem; right: 0.5rem; width: auto; max-width: none;
       }
     }
@@ -150,6 +150,10 @@
       </button>
       <button id="btnSecondScreen" title="Second Screen (USB)" class="w-8 h-8 rounded-full border border-zinc-800/60 bg-zinc-900/50 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition flex items-center justify-center">
         <i class="fa-solid fa-display text-xs"></i>
+      </button>
+      <button id="btnShare" title="Share — text, files, folders between your devices" class="w-8 h-8 rounded-full border border-zinc-800/60 bg-zinc-900/50 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition flex items-center justify-center relative">
+        <i class="fa-solid fa-right-left text-xs"></i>
+        <span id="shareBadge" class="hidden absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-emerald-400 ring-2 ring-zinc-950"></span>
       </button>
       <button id="btnSettings" title="Settings" class="w-8 h-8 rounded-full border border-zinc-800/60 bg-zinc-900/50 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition flex items-center justify-center">
         <i class="fa-solid fa-sliders text-xs"></i>
@@ -760,6 +764,58 @@
         <li>• <span class="text-zinc-400">Control</span> — taps, drags, scrolls and keys go back to the Mac.</li>
         <li>• <span class="text-zinc-400">USB only</span> — uses <code class="text-zinc-400">adb reverse</code>, no Wi-Fi or IP address.</li>
       </ul>
+    </div>
+  </div>
+
+  <!-- POPOUT: SHARE — text/files between this Mac and any other device -->
+  <div id="sharePanel" class="popout closed fixed top-14 right-4 z-40 w-[420px] max-w-[calc(100vw-2rem)] max-h-[calc(100vh-6rem)] rounded-2xl bg-zinc-900/95 backdrop-blur-xl border border-zinc-800/80 shadow-2xl p-4 space-y-3 flex flex-col overflow-hidden">
+    <div class="flex items-center justify-between px-1">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-right-left text-xs text-zinc-400"></i>
+        <span class="text-xs font-semibold text-zinc-200">Share</span>
+        <span class="text-[10px] text-zinc-500">text · files · folders — any device on this bridge</span>
+      </div>
+      <button id="btnCloseShare" class="w-6 h-6 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 transition flex items-center justify-center">
+        <i class="fa-solid fa-xmark text-xs"></i>
+      </button>
+    </div>
+
+    <!-- Text -->
+    <div class="rounded-xl bg-zinc-950 border border-zinc-800/80 p-3 space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-[11px] font-medium text-zinc-300">Text</span>
+        <div class="flex items-center gap-1.5">
+          <button id="btnSharePaste" type="button" class="text-[10px] px-2 py-1 rounded-md bg-zinc-900 border border-zinc-700 hover:border-zinc-500 text-zinc-300 hover:text-white transition">Paste from clipboard</button>
+          <button id="btnShareSendText" type="button" class="text-[10px] px-2.5 py-1 rounded-md bg-zinc-100 text-zinc-900 hover:bg-white font-medium transition">Send</button>
+        </div>
+      </div>
+      <textarea id="shareText" rows="3" placeholder="Type or paste text here, then Send. Open this page on the other device and copy it back."
+        class="w-full bg-zinc-900/60 border border-zinc-800 rounded-lg px-2.5 py-2 text-[11px] text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600 resize-none font-mono"></textarea>
+    </div>
+
+    <!-- Files / folders -->
+    <div class="rounded-xl bg-zinc-950 border border-zinc-800/80 p-3 space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-[11px] font-medium text-zinc-300">Files & folders</span>
+        <div class="flex items-center gap-1.5">
+          <button id="btnSharePickFiles" type="button" class="text-[10px] px-2 py-1 rounded-md bg-zinc-900 border border-zinc-700 hover:border-zinc-500 text-zinc-300 hover:text-white transition">Choose files</button>
+          <button id="btnSharePickFolder" type="button" class="text-[10px] px-2 py-1 rounded-md bg-zinc-900 border border-zinc-700 hover:border-zinc-500 text-zinc-300 hover:text-white transition">Choose folder</button>
+        </div>
+      </div>
+      <div id="shareDrop" class="border border-dashed border-zinc-700/80 rounded-lg px-3 py-4 text-center text-[10px] text-zinc-500 cursor-pointer hover:border-zinc-500 hover:text-zinc-300 transition select-none">
+        …or drop files / a folder here
+      </div>
+      <input id="shareFileInput" type="file" multiple class="hidden">
+      <input id="shareFolderInput" type="file" webkitdirectory multiple class="hidden">
+      <div id="shareUpload" class="hidden text-[10px] text-zinc-400"><span id="shareUploadLabel"></span></div>
+    </div>
+
+    <!-- Shared items list -->
+    <div id="shareList" class="flex-1 min-h-0 overflow-y-auto term-scroll space-y-1.5 pr-1"></div>
+
+    <div class="flex items-center justify-between text-[10px] text-zinc-600 px-1">
+      <span id="shareFoot">Items expire after 24h · stored on this Mac only</span>
+      <button id="btnShareRefresh" type="button" title="Refresh" class="text-zinc-500 hover:text-zinc-200 transition"><i class="fa-solid fa-rotate text-[10px]"></i></button>
     </div>
   </div>
 

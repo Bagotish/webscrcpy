@@ -245,6 +245,229 @@ import {
       btnSecondScreen.classList.toggle('text-white', open);
     }
 
+    // ------------------------------------------------------------ share
+    const sharePanel = document.getElementById('sharePanel');
+    const btnShare = document.getElementById('btnShare');
+    const shareBadge = document.getElementById('shareBadge');
+
+    function fmtBytes(n) {
+      if (n < 1024) return `${n} B`;
+      if (n < 1048576) return `${(n / 1024).toFixed(1)} KB`;
+      if (n < 1073741824) return `${(n / 1048576).toFixed(1)} MB`;
+      return `${(n / 1073741824).toFixed(2)} GB`;
+    }
+
+    async function shareApi(path, options) {
+      const res = await fetch(`${bridgeBase()}${path}`, { cache: 'no-store', ...options });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message || `Bridge returned ${res.status}`);
+      }
+      return res;
+    }
+
+    async function refreshShareList() {
+      const list = document.getElementById('shareList');
+      if (!list) return;
+      try {
+        const res = await shareApi('/share');
+        const body = await res.json();
+        const items = body.items || [];
+        shareBadge.classList.toggle('hidden', !items.length);
+        if (!items.length) {
+          list.innerHTML = '<div class="text-[10px] text-zinc-600 text-center py-4">Nothing shared yet. Send text or drop a file above.</div>';
+          return;
+        }
+        list.innerHTML = items.map((item) => {
+          const when = new Date(item.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const icon = item.kind === 'text' ? 'fa-font' : 'fa-file';
+          const actions = item.kind === 'text'
+            ? `<button data-copy="${item.id}" class="text-[10px] px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition shrink-0">Copy</button>`
+            : `<a href="${bridgeBase()}/share/${item.id}" download="${encodeURIComponent(item.name)}" class="text-[10px] px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition shrink-0 no-underline">Save</a>`;
+          return `<div class="flex items-center gap-2 rounded-lg bg-zinc-950 border border-zinc-800/80 px-2.5 py-2">
+            <i class="fa-solid ${icon} text-[10px] text-zinc-500 shrink-0"></i>
+            <div class="flex-1 min-w-0">
+              <div class="text-[11px] text-zinc-200 truncate">${item.name}</div>
+              <div class="text-[9px] text-zinc-500">${fmtBytes(item.size)} · ${when}${item.kind === 'text' ? ' · text' : ''}</div>
+            </div>
+            ${actions}
+            <button data-del="${item.id}" title="Remove" class="text-zinc-600 hover:text-red-400 transition shrink-0"><i class="fa-solid fa-xmark text-[10px]"></i></button>
+          </div>`;
+        }).join('');
+        list.querySelectorAll('[data-copy]').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            const raw = await fetch(`${bridgeBase()}/share/${btn.dataset.copy}/raw`).then((r) => r.text());
+            try { await navigator.clipboard.writeText(raw); btn.textContent = 'Copied'; }
+            catch { btn.textContent = 'Select manually'; }
+            setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+          });
+        });
+        list.querySelectorAll('[data-del]').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            await shareApi(`/share/${btn.dataset.del}`, { method: 'DELETE' }).catch(() => {});
+            refreshShareList();
+          });
+        });
+      } catch (err) {
+        list.innerHTML = `<div class="text-[10px] text-red-400/80 text-center py-4">Bridge unreachable: ${err.message}</div>`;
+      }
+    }
+
+    async function shareSendText(text) {
+      if (!text.trim()) return;
+      await shareApi('/share/text', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ text, name: text.slice(0, 40) || 'text' }),
+      });
+      const box = document.getElementById('shareText');
+      if (box) box.value = '';
+      refreshShareList();
+    }
+
+    async function shareUploadFiles(files) {
+      const label = document.getElementById('shareUploadLabel');
+      const box = document.getElementById('shareUpload');
+      const arr = [...files];
+      for (let i = 0; i < arr.length; i++) {
+        const f = arr[i];
+        // Folders arrive as webkitRelativePath; zip the top folder client-side.
+        const rel = f.webkitRelativePath || f.name;
+        const topDir = rel.includes('/') ? rel.split('/')[0] : null;
+        if (topDir) {
+          // Group upload: zip the folder in the browser.
+          label.textContent = `Zipping folder ${topDir}…`;
+          box.classList.remove('hidden');
+          await shareUploadFolderZipped(topDir, arr.filter((x) => (x.webkitRelativePath || x.name).startsWith(`${topDir}/`)));
+          const rest = arr.filter((x) => !(x.webkitRelativePath || x.name).startsWith(`${topDir}/`));
+          if (rest.length) await shareUploadFiles(rest);
+          return;
+        }
+        label.textContent = `Uploading ${f.name} (${i + 1}/${arr.length})…`;
+        box.classList.remove('hidden');
+        await shareApi(`/share/file?name=${encodeURIComponent(f.name)}&mime=${encodeURIComponent(f.type || 'application/octet-stream')}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/octet-stream' },
+          body: f,
+        });
+      }
+      box.classList.add('hidden');
+      refreshShareList();
+    }
+
+    async function shareUploadFolderZipped(folderName, files) {
+      // Minimal ZIP (store, no compression) built in the browser — folders go
+      // over as one archive the other side can unzip.
+      const enc = new TextEncoder();
+      const chunks = [];
+      const central = [];
+      let offset = 0;
+      const crcTable = (() => {
+        const t = new Uint32Array(256);
+        for (let n = 0; n < 256; n++) {
+          let c = n;
+          for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+          t[n] = c >>> 0;
+        }
+        return t;
+      })();
+      const crc32 = (buf) => {
+        let c = 0xffffffff;
+        for (let i = 0; i < buf.length; i++) c = crcTable[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
+        return (c ^ 0xffffffff) >>> 0;
+      };
+      const u16 = (v) => [v & 255, (v >> 8) & 255];
+      const u32 = (v) => [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255];
+      const dosTime = (() => {
+        const d = new Date();
+        return { time: (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), date: ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate() };
+      })();
+
+      for (const file of files) {
+        const rel = (file.webkitRelativePath || file.name).slice(folderName.length + 1) || file.name;
+        const data = new Uint8Array(await file.arrayBuffer());
+        const nameBytes = enc.encode(rel);
+        const crc = crc32(data);
+        const local = new Uint8Array([
+          ...u32(0x04034b50), ...u16(20), ...u16(0), ...u16(0), ...u16(dosTime.time), ...u16(dosTime.date),
+          ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nameBytes.length), ...u16(0), ...nameBytes,
+        ]);
+        chunks.push(local, data);
+        central.push(new Uint8Array([
+          ...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0), ...u16(0), ...u16(dosTime.time), ...u16(dosTime.date),
+          ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nameBytes.length), ...u16(0), ...u16(0),
+          ...u16(0), ...u16(0), ...u32(0), ...u32(offset), ...nameBytes,
+        ]));
+        offset += local.length + data.length;
+      }
+      const centralSize = central.reduce((s, c) => s + c.length, 0);
+      // One level of flattening only: Uint8Arrays must stay intact as elements.
+      const parts = [];
+      for (const part of chunks) parts.push(part);
+      for (const part of central) parts.push(part);
+      parts.push(new Uint8Array([
+        ...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length),
+        ...u32(centralSize), ...u32(offset), ...u16(0),
+      ]));
+      const zip = new Blob(parts, { type: 'application/zip' });
+      await shareApi(`/share/file?name=${encodeURIComponent(`${folderName}.zip`)}&mime=application/zip`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/zip' },
+        body: zip,
+      });
+    }
+
+    function toggleShare(open = sharePanel.classList.contains('closed')) {
+      if (open) {
+        toggleSettings(false);
+        toggleDevices(false);
+        toggleDownload(false);
+        toggleChangelog(false);
+        toggleSecondScreen(false);
+        refreshShareList();
+      }
+      sharePanel.classList.toggle('closed', !open);
+      btnShare.classList.toggle('bg-zinc-800', open);
+      btnShare.classList.toggle('text-white', open);
+    }
+
+    btnShare.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleShare();
+    });
+    document.getElementById('btnCloseShare').addEventListener('click', () => toggleShare(false));
+    document.getElementById('btnShareRefresh').addEventListener('click', () => refreshShareList());
+    document.getElementById('btnShareSendText').addEventListener('click', () => {
+      shareSendText(document.getElementById('shareText').value).catch((err) => alert(err.message));
+    });
+    document.getElementById('btnSharePaste').addEventListener('click', async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        const box = document.getElementById('shareText');
+        if (box) box.value = text;
+      } catch {
+        alert('Clipboard read blocked. Paste into the box manually (Ctrl/Cmd+V).');
+      }
+    });
+    document.getElementById('btnSharePickFiles').addEventListener('click', () => document.getElementById('shareFileInput').click());
+    document.getElementById('btnSharePickFolder').addEventListener('click', () => document.getElementById('shareFolderInput').click());
+    document.getElementById('shareFileInput').addEventListener('change', (e) => shareUploadFiles(e.target.files).catch((err) => alert(err.message)));
+    document.getElementById('shareFolderInput').addEventListener('change', (e) => shareUploadFiles(e.target.files).catch((err) => alert(err.message)));
+    const dropZone = document.getElementById('shareDrop');
+    dropZone.addEventListener('click', () => document.getElementById('shareFileInput').click());
+    ['dragover', 'dragenter'].forEach((name) => dropZone.addEventListener(name, (e) => {
+      e.preventDefault();
+      dropZone.classList.add('border-zinc-400', 'text-zinc-300');
+    }));
+    ['dragleave', 'drop'].forEach((name) => dropZone.addEventListener(name, (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('border-zinc-400', 'text-zinc-300');
+    }));
+    dropZone.addEventListener('drop', (e) => {
+      const files = [...(e.dataTransfer?.files || [])];
+      if (files.length) shareUploadFiles(files).catch((err) => alert(err.message));
+    });
+
     btnSettings.addEventListener('click', (e) => {
       e.stopPropagation();
       toggleSettings();
