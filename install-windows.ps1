@@ -1269,8 +1269,11 @@ function onUpgrade(request, socket, head) {
 
 const server = http.createServer(onRequest);
 server.on('upgrade', onUpgrade);
-server.listen(port, '127.0.0.1', () => {
-  console.log(`Wi-Fi bridge listening on ws://127.0.0.1:${port}`);
+// Bind every interface: phones on the LAN and machines on Tailscale open the
+// app straight at http://<mac-ip>:8765. Uploader-guarded endpoints
+// (/discover, /probe, /pair, /screen, /share) still check Origin themselves.
+server.listen(port, () => {
+  console.log(`Wi-Fi bridge listening on http://0.0.0.0:${port}`);
 });
 
 function loadOrGenerateCerts() {
@@ -1296,8 +1299,8 @@ const certs = loadOrGenerateCerts();
 if (certs) {
   const secure = https.createServer(certs, onRequest);
   secure.on('upgrade', onUpgrade);
-  secure.listen(securePort, '127.0.0.1', () => {
-    console.log(`Wi-Fi bridge listening on wss://127.0.0.1:${securePort}`);
+  secure.listen(securePort, () => {
+    console.log(`Wi-Fi bridge listening on https://0.0.0.0:${securePort}`);
   });
 } else {
   console.log('No wifi-bridge-certs found, wss://127.0.0.1 is disabled (only ws://127.0.0.1:8765 is active).');
